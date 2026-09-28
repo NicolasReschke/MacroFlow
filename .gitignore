@@ -1,0 +1,15 @@
+bin/
+obj/
+artifacts/
+.vs/
+.idea/
+*.user
+*.suo
+*.pfx
+*.snk
+*.cer
+*.key
+*.pem
+*.env
+profiles/
+publish/

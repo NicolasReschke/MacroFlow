@@ -1,0 +1,158 @@
+<Window x:Class="MacroFlow.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MacroFlow" Height="780" Width="1180" MinHeight="680" MinWidth="980"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="MacroFlow" FontSize="30" FontWeight="SemiBold" />
+                <TextBlock Text="Macros interrumpibles, perfiles portables y controles de seguridad"
+                           Foreground="{StaticResource TextSecondary}" FontSize="14" />
+            </StackPanel>
+            <Border Grid.Column="1" Background="{StaticResource PanelBackground}"
+                    BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="10" Padding="18,10">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="StatusDot" Width="12" Height="12" Fill="#6B7280" Margin="0,0,10,0" />
+                    <StackPanel>
+                        <TextBlock x:Name="StatusText" Text="DETENIDO" FontWeight="Bold" />
+                        <TextBlock x:Name="PauseReasonsText" Text="Sin pausas activas" Foreground="{StaticResource TextSecondary}" FontSize="12" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="310" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorder}"
+                    BorderThickness="1" CornerRadius="12" Padding="18">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="PERFIL Y CONTROLES" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Primary}" />
+                        <Label Content="Nombre del perfil" Margin="0,16,0,0" />
+                        <TextBox x:Name="ProfileNameBox" Text="Throne and Liberty" />
+                        <ComboBox x:Name="ProfilesCombo" SelectionChanged="ProfilesCombo_SelectionChanged" />
+                        <StackPanel Orientation="Horizontal" Margin="-4,0,0,8">
+                            <Button Content="Guardar" Click="SaveProfile_Click" />
+                            <Button Content="Recargar" Click="RefreshProfiles_Click" />
+                        </StackPanel>
+
+                        <Separator Background="{StaticResource PanelBorder}" Margin="0,8,0,16" />
+                        <Label Content="Activar / detener macro" />
+                        <TextBox x:Name="ToggleKeyBox" Text="F6" />
+                        <Label Content="Parada de emergencia" />
+                        <TextBox x:Name="EmergencyKeyBox" Text="F12" />
+                        <Label Content="Pausa mientras se mantiene" />
+                        <TextBox x:Name="HoldPauseKeyBox" Text="Q" />
+                        <Label Content="Pausa alternable para morph" />
+                        <TextBox x:Name="MorphKeyBox" Text="M" />
+                        <Label Content="Retardo al reanudar (ms)" />
+                        <TextBox x:Name="ResumeDelayBox" Text="150" />
+                        <CheckBox x:Name="RepeatCheck" Content="Repetir secuencia continuamente" IsChecked="True" />
+                        <CheckBox x:Name="RestrictProcessCheck" Content="Solo con el juego en primer plano" />
+                        <Label Content="Nombre del proceso (sin .exe)" Margin="0,6,0,0" />
+                        <TextBox x:Name="TargetProcessBox" Text="TL" />
+                        <TextBlock Text="Consejo: asigná los botones especiales del G502 a F13–F24 en G Hub."
+                                   Foreground="{StaticResource TextSecondary}" TextWrapping="Wrap" FontSize="12" Margin="0,8,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorder}"
+                    BorderThickness="1" CornerRadius="12" Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                            <Label Content="Tipo de acción" />
+                            <ComboBox x:Name="ActionKindCombo" SelectedIndex="0">
+                                <ComboBoxItem Content="Pulsar tecla" Tag="KeyPress" />
+                                <ComboBoxItem Content="Bajar tecla" Tag="KeyDown" />
+                                <ComboBoxItem Content="Soltar tecla" Tag="KeyUp" />
+                                <ComboBoxItem Content="Esperar" Tag="Delay" />
+                                <ComboBoxItem Content="Clic del mouse" Tag="MouseClick" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                            <Label Content="Tecla o botón" />
+                            <TextBox x:Name="ActionValueBox" Text="1" ToolTip="Ejemplos: 1, Q, F13, left, right" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="0,0,10,0">
+                            <Label Content="Duración (ms)" />
+                            <TextBox x:Name="ActionDurationBox" Text="75" />
+                        </StackPanel>
+                        <Button Grid.Column="3" Content="＋ Agregar" Background="{StaticResource PrimaryDark}"
+                                VerticalAlignment="Bottom" Margin="0,0,0,10" Click="AddAction_Click" />
+                    </Grid>
+
+                    <DataGrid x:Name="ActionsGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False"
+                              Background="#10151D" Foreground="{StaticResource TextPrimary}" BorderBrush="{StaticResource PanelBorder}"
+                              GridLinesVisibility="Horizontal" RowBackground="#10151D" AlternatingRowBackground="#151B25"
+                              HeadersVisibility="Column" SelectionMode="Single">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#202938" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                <Setter Property="Padding" Value="10" />
+                                <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex}" Width="45" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Acción" Binding="{Binding Kind}" Width="180" />
+                            <DataGridTextColumn Header="Tecla / botón" Binding="{Binding Value}" Width="*" />
+                            <DataGridTextColumn Header="Duración (ms)" Binding="{Binding DurationMs}" Width="150" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="↑ Subir" Click="MoveUp_Click" />
+                            <Button Content="↓ Bajar" Click="MoveDown_Click" />
+                            <Button Content="Eliminar" Foreground="{StaticResource Danger}" Click="DeleteAction_Click" />
+                        </StackPanel>
+                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}"
+                                   Text="Las entradas generadas por MacroFlow no vuelven a activar sus hotkeys." />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="InfoText" Text="Listo. F6 activa la macro; F12 la detiene." Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="■ Detener" Foreground="{StaticResource Danger}" Click="Stop_Click" Padding="20,10" />
+                <Button Content="▶ Iniciar" Background="{StaticResource PrimaryDark}" Click="Start_Click" Padding="24,10" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MacroFlow.App/MacroFlow.App.csproj" />
+    <Project Path="src/MacroFlow.Core/MacroFlow.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MacroFlow.Core.Tests/MacroFlow.Core.Tests.csproj" />
+  </Folder>
+</Solution>
