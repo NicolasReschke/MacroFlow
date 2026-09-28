@@ -11,8 +11,8 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Restore
@@ -27,7 +27,7 @@ jobs:
         run: dotnet run --project tests/MacroFlow.Core.Tests --configuration Release --no-build
       - name: Publish portable
         run: dotnet publish src/MacroFlow.App/MacroFlow.App.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/portable-win-x64 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: MacroFlow-portable-win-x64
           path: artifacts/portable-win-x64/
