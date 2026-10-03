@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MacroFlow.App.Input;
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _resumeCancellation;
     private MacroProfile? _runningProfile;
     private bool _morphPaused;
+    private bool _modalWindowOpen;
     private KeyCaptureTarget _captureTarget;
     private System.Windows.Point _dragStartPoint;
     private MacroAction? _draggedAction;
@@ -50,7 +52,11 @@ public partial class MainWindow : Window
         _profileStore = new ProfileStore(Path.Combine(AppContext.BaseDirectory, "profiles"));
         _targetTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, TargetTimer_Tick, Dispatcher);
 
-        ActionsGrid.ItemsSource = _actions;
+        ActionsGrid.ItemsSource = new CompositeCollection
+        {
+            new CollectionContainer { Collection = _actions },
+            AddActionPlaceholder.Instance
+        };
         ActionsGrid.AlternationCount = 10_000;
         LoadProfileIntoEditor(new MacroProfile());
 
@@ -309,9 +315,17 @@ public partial class MainWindow : Window
             _ => "Elegí una tecla."
         };
         var keyboard = new VirtualKeyboardWindow(purpose) { Owner = this };
-        if (keyboard.ShowDialog() == true && keyboard.SelectedToken is { } token)
+        _modalWindowOpen = true;
+        try
         {
-            SetCapturedKey(captureTarget, token);
+            if (keyboard.ShowDialog() == true && keyboard.SelectedToken is { } token)
+            {
+                SetCapturedKey(captureTarget, token);
+            }
+        }
+        finally
+        {
+            _modalWindowOpen = false;
         }
     }
 
@@ -350,7 +364,17 @@ public partial class MainWindow : Window
     {
         if (_engine.State != MacroEngineState.Stopped) await StopMacroAsync();
         var editor = new MacroActionEditorWindow { Owner = this };
-        if (editor.ShowDialog() != true || editor.ResultAction is not { } action) return;
+        _modalWindowOpen = true;
+        bool accepted;
+        try
+        {
+            accepted = editor.ShowDialog() == true;
+        }
+        finally
+        {
+            _modalWindowOpen = false;
+        }
+        if (!accepted || editor.ResultAction is not { } action) return;
         _actions.Add(action);
         ActionsGrid.SelectedIndex = _actions.Count - 1;
         ActionsGrid.ScrollIntoView(action);
@@ -363,7 +387,17 @@ public partial class MainWindow : Window
         e.Handled = true;
         if (_engine.State != MacroEngineState.Stopped) await StopMacroAsync();
         var editor = new MacroActionEditorWindow(CloneAction(action)) { Owner = this };
-        if (editor.ShowDialog() != true || editor.ResultAction is not { } edited) return;
+        _modalWindowOpen = true;
+        bool accepted;
+        try
+        {
+            accepted = editor.ShowDialog() == true;
+        }
+        finally
+        {
+            _modalWindowOpen = false;
+        }
+        if (!accepted || editor.ResultAction is not { } edited) return;
         action.Kind = edited.Kind;
         action.Value = edited.Value;
         action.DurationMs = edited.DurationMs;
@@ -395,10 +429,19 @@ public partial class MainWindow : Window
         e.Effects = e.Data.GetDataPresent(typeof(MacroAction))
             ? System.Windows.DragDropEffects.Move
             : System.Windows.DragDropEffects.None;
+        if (e.Effects == System.Windows.DragDropEffects.Move) MoveDraggedAction(e);
         e.Handled = true;
     }
 
     private void ActionsGrid_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(MacroAction)) is not MacroAction action) return;
+        MoveDraggedAction(e);
+        ActionsGrid.SelectedItem = action;
+        SetInfo("Orden actualizado. Guardá el perfil para conservar el cambio.");
+    }
+
+    private void MoveDraggedAction(System.Windows.DragEventArgs e)
     {
         if (e.Data.GetData(typeof(MacroAction)) is not MacroAction action) return;
         var oldIndex = _actions.IndexOf(action);
@@ -410,8 +453,6 @@ public partial class MainWindow : Window
         if (oldIndex < insertionIndex) insertionIndex--;
         insertionIndex = Math.Clamp(insertionIndex, 0, _actions.Count - 1);
         if (oldIndex != insertionIndex) _actions.Move(oldIndex, insertionIndex);
-        ActionsGrid.SelectedItem = action;
-        SetInfo("Orden actualizado. Guardá el perfil para conservar el cambio.");
     }
 
     private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
@@ -445,7 +486,8 @@ public partial class MainWindow : Window
 
     private void MoveSelected(int offset)
     {
-        var index = ActionsGrid.SelectedIndex;
+        if (ActionsGrid.SelectedItem is not MacroAction action) return;
+        var index = _actions.IndexOf(action);
         var destination = index + offset;
         if (index < 0 || destination < 0 || destination >= _actions.Count) return;
         _actions.Move(index, destination);
@@ -545,7 +587,8 @@ public partial class MainWindow : Window
     private bool IsTargetAllowed(MacroProfile? profile) =>
         profile is not null && (!profile.RestrictToTargetProcess || ForegroundProcessService.IsForeground(profile.TargetProcessName));
 
-    private bool IsEditingText() => !IsActive || System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox;
+    private bool IsEditingText() => _modalWindowOpen ||
+        (IsActive && System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox);
     private static bool Matches(int virtualKey, string key) => KeyMap.Matches(virtualKey, key);
     private static string GetKeyToken(System.Windows.Controls.TextBox box) => box.Tag as string ?? box.Text.Trim();
     private static void SetKeyBox(System.Windows.Controls.TextBox box, string token)

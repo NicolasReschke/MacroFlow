@@ -181,28 +181,33 @@
                                 </ListBox.ItemContainerStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Width="194" Height="76">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="62"/><ColumnDefinition Width="112"/><ColumnDefinition Width="20"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border x:Name="ActionTile" Width="58" Height="58" CornerRadius="6"
-                                                    Background="#8F1438" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding ., Converter={StaticResource ActionValueLabelConverter}}"
-                                                           Foreground="White" FontSize="15" FontWeight="Bold"
-                                                           TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                                                           VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4" />
-                                            </Border>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                                                <TextBlock Text="{Binding Kind, Converter={StaticResource ActionKindLabelConverter}}"
-                                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                                    <TextBlock Text="{Binding DurationMs}" FontSize="18" FontWeight="SemiBold" />
-                                                    <TextBlock Text=" ms" FontSize="12" VerticalAlignment="Bottom" Margin="1,0,0,2" />
+                                        <Grid x:Name="TemplateRoot" Width="194" Height="76">
+                                            <Grid x:Name="ActionContent" Width="194">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="62"/><ColumnDefinition Width="112"/><ColumnDefinition Width="20"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border x:Name="ActionTile" Width="58" Height="58" CornerRadius="6"
+                                                        Background="#8F1438" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ., Converter={StaticResource ActionValueLabelConverter}}"
+                                                               Foreground="White" FontSize="15" FontWeight="Bold"
+                                                               TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                    <TextBlock Text="{Binding Kind, Converter={StaticResource ActionKindLabelConverter}}"
+                                                               Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                        <TextBlock Text="{Binding DurationMs}" FontSize="18" FontWeight="SemiBold" />
+                                                        <TextBlock Text=" ms" FontSize="12" VerticalAlignment="Bottom" Margin="1,0,0,2" />
+                                                    </StackPanel>
                                                 </StackPanel>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="→" FontSize="18" Foreground="#667386"
-                                                       VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="→" FontSize="18" Foreground="#667386"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                            </Grid>
+                                            <Button x:Name="InlineAddButton" Content="＋" Width="58" Height="58" Visibility="Collapsed"
+                                                    FontSize="26" FontWeight="Light" ToolTip="Agregar una acción"
+                                                    Background="#3A3F47" Click="AddAction_Click" />
                                         </Grid>
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding Kind}" Value="Delay">
@@ -219,6 +224,11 @@
                                                 <Setter TargetName="ActionTile" Property="BorderBrush" Value="#60A5FA" />
                                                 <Setter TargetName="ActionTile" Property="BorderThickness" Value="2" />
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsAdd}" Value="True">
+                                                <Setter TargetName="TemplateRoot" Property="Width" Value="76" />
+                                                <Setter TargetName="ActionContent" Property="Visibility" Value="Collapsed" />
+                                                <Setter TargetName="InlineAddButton" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
@@ -227,8 +237,6 @@
                     </Border>
                     <Grid Grid.Row="2" Margin="0,12,0,0">
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="＋" FontSize="22" FontWeight="Bold" ToolTip="Agregar una acción"
-                                    Background="{StaticResource PrimaryDark}" Click="AddAction_Click" Padding="18,5" />
                             <Button Content="↑ Subir" Click="MoveUp_Click" /><Button Content="↓ Bajar" Click="MoveDown_Click" />
                             <Button Content="Eliminar tecla" Foreground="{StaticResource Danger}" Click="DeleteAction_Click" />
                             <Button Content="Borrar secuencia" Foreground="{StaticResource Danger}" Click="ClearActions_Click" />
