@@ -28,7 +28,7 @@ public sealed class ActionValueLabelConverter : IValueConverter
         if (value is not MacroAction action) return string.Empty;
         return action.Kind switch
         {
-            MacroActionKind.Delay => "—",
+            MacroActionKind.Delay => "ESPERAR",
             MacroActionKind.MouseClick => action.Value.ToLowerInvariant() switch
             {
                 "left" or "izquierdo" => "Botón izquierdo",

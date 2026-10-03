@@ -167,39 +167,106 @@
                         </Grid>
                     </Border>
 
-                    <DataGrid x:Name="ActionsGrid" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False"
-                              IsReadOnly="True" Background="#10151D" Foreground="{StaticResource TextPrimary}"
-                              BorderBrush="{StaticResource PanelBorder}" GridLinesVisibility="Horizontal"
-                              RowBackground="#10151D" AlternatingRowBackground="#151B25"
-                              HeadersVisibility="Column" SelectionMode="Single">
-                        <DataGrid.Resources>
-                            <Style TargetType="DataGridCell">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-                                <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
-                                <Setter Property="Padding" Value="8,6" />
-                            </Style>
-                            <Style TargetType="DataGridRow">
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#244A4B" /><Setter Property="Foreground" Value="White" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </DataGrid.Resources>
-                        <DataGrid.ColumnHeaderStyle>
-                            <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Background" Value="#202938" /><Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-                                <Setter Property="Padding" Value="10" /><Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
-                            </Style>
-                        </DataGrid.ColumnHeaderStyle>
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Acción" Binding="{Binding Kind, Converter={StaticResource ActionKindLabelConverter}}" Width="260" />
-                            <DataGridTextColumn Header="Tecla o botón" Binding="{Binding ., Converter={StaticResource ActionValueLabelConverter}}" Width="*" />
-                            <DataGridTextColumn Header="Tiempo (ms)" Binding="{Binding DurationMs}" Width="130" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Border Grid.Row="2" Background="#0B0F15" BorderBrush="{StaticResource PanelBorder}"
+                            BorderThickness="1" CornerRadius="10" Padding="12">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Margin="4,0,4,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="9" Height="9" Fill="#8F1438" VerticalAlignment="Center" />
+                                    <TextBlock Text="  Tecla" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+                                    <Ellipse Width="9" Height="9" Fill="#24536B" Margin="18,0,0,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="  Espera" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+                                    <Ellipse Width="9" Height="9" Fill="#54377A" Margin="18,0,0,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="  Mouse" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock HorizontalAlignment="Right" Text="La secuencia continúa de izquierda a derecha →"
+                                           Foreground="{StaticResource TextSecondary}" />
+                            </Grid>
+
+                            <ListBox x:Name="ActionsGrid" Grid.Row="1" Background="Transparent" BorderThickness="0"
+                                     Foreground="{StaticResource TextPrimary}" SelectionMode="Single"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" IsItemsHost="True" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Margin" Value="4,4,2,8" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="SelectionBorder" Background="Transparent" BorderBrush="Transparent"
+                                                            BorderThickness="2" CornerRadius="9" Padding="7">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="SelectionBorder" Property="Background" Value="#17212D" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource Primary}" />
+                                                            <Setter TargetName="SelectionBorder" Property="Background" Value="#173134" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Width="194" Height="76">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="62"/><ColumnDefinition Width="112"/><ColumnDefinition Width="20"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border x:Name="ActionTile" Width="58" Height="58" CornerRadius="6"
+                                                    Background="#8F1438" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding ., Converter={StaticResource ActionValueLabelConverter}}"
+                                                           Foreground="White" FontSize="15" FontWeight="Bold"
+                                                           TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                <TextBlock Text="{Binding Kind, Converter={StaticResource ActionKindLabelConverter}}"
+                                                           Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                    <TextBlock Text="{Binding DurationMs}" FontSize="18" FontWeight="SemiBold" />
+                                                    <TextBlock Text=" ms" FontSize="12" VerticalAlignment="Bottom" Margin="1,0,0,2" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="→" FontSize="18" Foreground="#667386"
+                                                       VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                        </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Kind}" Value="Delay">
+                                                <Setter TargetName="ActionTile" Property="Background" Value="#24536B" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Kind}" Value="MouseClick">
+                                                <Setter TargetName="ActionTile" Property="Background" Value="#54377A" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Kind}" Value="KeyDown">
+                                                <Setter TargetName="ActionTile" Property="BorderBrush" Value="#F59E0B" />
+                                                <Setter TargetName="ActionTile" Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Kind}" Value="KeyUp">
+                                                <Setter TargetName="ActionTile" Property="BorderBrush" Value="#60A5FA" />
+                                                <Setter TargetName="ActionTile" Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
                     <Grid Grid.Row="3" Margin="0,12,0,0">
                         <StackPanel Orientation="Horizontal">
                             <Button Content="↑ Subir" Click="MoveUp_Click" /><Button Content="↓ Bajar" Click="MoveDown_Click" />
