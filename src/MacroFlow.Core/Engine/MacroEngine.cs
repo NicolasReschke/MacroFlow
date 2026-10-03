@@ -14,6 +14,7 @@ public sealed class MacroEngine : IAsyncDisposable
 {
     private readonly IInputEmitter _input;
     private readonly object _sync = new();
+    private readonly SemaphoreSlim _inputGate = new(1, 1);
     private CancellationTokenSource? _runCancellation;
     private Task? _runTask;
 
@@ -87,7 +88,15 @@ public sealed class MacroEngine : IAsyncDisposable
 
         if (paused)
         {
-            await _input.ReleaseAllAsync().ConfigureAwait(false);
+            await _inputGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await _input.ReleaseAllAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _inputGate.Release();
+            }
         }
     }
 
@@ -129,21 +138,26 @@ public sealed class MacroEngine : IAsyncDisposable
         switch (action.Kind)
         {
             case MacroActionKind.KeyPress:
-                await _input.KeyDownAsync(action.Value, cancellationToken).ConfigureAwait(false);
+                await SendWhileActiveAsync(
+                    () => _input.KeyDownAsync(action.Value, cancellationToken), cancellationToken).ConfigureAwait(false);
                 await DelayActiveTimeAsync(Math.Max(1, action.DurationMs), cancellationToken).ConfigureAwait(false);
-                await _input.KeyUpAsync(action.Value, cancellationToken).ConfigureAwait(false);
+                await SendWhileActiveAsync(
+                    () => _input.KeyUpAsync(action.Value, cancellationToken), cancellationToken).ConfigureAwait(false);
                 break;
             case MacroActionKind.KeyDown:
-                await _input.KeyDownAsync(action.Value, cancellationToken).ConfigureAwait(false);
+                await SendWhileActiveAsync(
+                    () => _input.KeyDownAsync(action.Value, cancellationToken), cancellationToken).ConfigureAwait(false);
                 break;
             case MacroActionKind.KeyUp:
-                await _input.KeyUpAsync(action.Value, cancellationToken).ConfigureAwait(false);
+                await SendWhileActiveAsync(
+                    () => _input.KeyUpAsync(action.Value, cancellationToken), cancellationToken).ConfigureAwait(false);
                 break;
             case MacroActionKind.Delay:
                 await DelayActiveTimeAsync(action.DurationMs, cancellationToken).ConfigureAwait(false);
                 break;
             case MacroActionKind.MouseClick:
-                await _input.MouseClickAsync(action.Value, cancellationToken).ConfigureAwait(false);
+                await SendWhileActiveAsync(
+                    () => _input.MouseClickAsync(action.Value, cancellationToken), cancellationToken).ConfigureAwait(false);
                 if (action.DurationMs > 0)
                 {
                     await DelayActiveTimeAsync(action.DurationMs, cancellationToken).ConfigureAwait(false);
@@ -151,6 +165,25 @@ public sealed class MacroEngine : IAsyncDisposable
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(action.Kind), action.Kind, "Acción desconocida.");
+        }
+    }
+
+    private async Task SendWhileActiveAsync(Func<Task> send, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            await Pause.WaitWhilePausedAsync(cancellationToken).ConfigureAwait(false);
+            await _inputGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (Pause.IsPaused) continue;
+                await send().ConfigureAwait(false);
+                return;
+            }
+            finally
+            {
+                _inputGate.Release();
+            }
         }
     }
 
@@ -197,5 +230,6 @@ public sealed class MacroEngine : IAsyncDisposable
     {
         await StopAsync().ConfigureAwait(false);
         _runCancellation?.Dispose();
+        _inputGate.Dispose();
     }
 }

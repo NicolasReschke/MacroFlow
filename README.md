@@ -16,6 +16,8 @@ MacroFlow es una aplicación de escritorio para Windows que ejecuta secuencias d
 - Liberación automática de teclas sintéticas al pausar o detener.
 - Restricción opcional al proceso que esté en primer plano.
 - Captura directa de teclas físicas, incluyendo Shift/Ctrl izquierdos y derechos, signos y F1–F24.
+- Teclado virtual para asignar teclas ausentes en teclados compactos, como F13–F24.
+- Pausa prioritaria sincronizada con el envío de entradas para evitar que una acción nueva se cuele al entrar en parry o morph.
 - Perfiles JSON locales.
 - Minimización a la bandeja.
 - Sin telemetría, red, drivers ni inyección de procesos.
@@ -33,6 +35,7 @@ Los botones especiales del mouse pueden asignarse en G Hub a `F13`–`F24`; lueg
 ## Captura de teclas
 
 - No es necesario escribir el nombre de una tecla: el botón **Capturar** registra su código de Windows.
+- **Mostrar teclado virtual** permite elegir una tecla sin tenerla físicamente; sólo la asigna, no la pulsa.
 - Se distinguen Shift, Ctrl y Alt izquierdos y derechos.
 - Los signos dependen de la distribución activa del teclado y se muestran con el nombre provisto por Windows.
 - Para una combinación, agregá tres acciones. Ejemplo: **Mantener Ctrl**, **Pulsar 1**, **Soltar Ctrl**.

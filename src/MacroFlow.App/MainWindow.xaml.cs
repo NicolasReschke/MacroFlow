@@ -110,6 +110,20 @@ public partial class MainWindow : Window
     private void KeyboardHook_KeyChanged(object? sender, GlobalKeyEvent e)
     {
         if (e.IsInjected) return;
+
+        // Close the small check/send race before Windows forwards a parry or morph key to the game.
+        // SetPauseAsync is synchronous for this emitter except for gate contention with an input already in progress.
+        var runningProfile = _runningProfile;
+        if (e.IsDown && runningProfile is not null && _engine.State != MacroEngineState.Stopped &&
+            (Matches(e.VirtualKey, runningProfile.HoldPauseKey) ||
+             Matches(e.VirtualKey, runningProfile.MorphToggleKey)))
+        {
+            _engine.SetPauseAsync(
+                    Matches(e.VirtualKey, runningProfile.HoldPauseKey) ? HoldPauseReason : MorphPauseReason,
+                    true)
+                .GetAwaiter().GetResult();
+        }
+
         Dispatcher.BeginInvoke(async () => await HandlePhysicalKeyAsync(e));
     }
 
@@ -286,6 +300,27 @@ public partial class MainWindow : Window
 
     private void CancelCapture_Click(object sender, RoutedEventArgs e) => CancelKeyCapture();
 
+    private void ShowVirtualKeyboard_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string target } ||
+            !Enum.TryParse<KeyCaptureTarget>(target, out var captureTarget)) return;
+
+        var purpose = captureTarget switch
+        {
+            KeyCaptureTarget.Action => "Elegí la tecla que se agregará a la secuencia.",
+            KeyCaptureTarget.Toggle => "Elegí la tecla para iniciar o detener la secuencia.",
+            KeyCaptureTarget.Emergency => "Elegí la tecla de parada de emergencia.",
+            KeyCaptureTarget.HoldPause => "Elegí la tecla que pausará mientras la mantengas.",
+            KeyCaptureTarget.Morph => "Elegí la tecla para entrar o salir de morph.",
+            _ => "Elegí una tecla."
+        };
+        var keyboard = new VirtualKeyboardWindow(purpose) { Owner = this };
+        if (keyboard.ShowDialog() == true && keyboard.SelectedToken is { } token)
+        {
+            SetCapturedKey(captureTarget, token);
+        }
+    }
+
     private void CancelKeyCapture()
     {
         _captureTarget = KeyCaptureTarget.None;
@@ -297,6 +332,13 @@ public partial class MainWindow : Window
     {
         var target = _captureTarget;
         var token = KeyMap.ToToken(virtualKey);
+        SetCapturedKey(target, token);
+        _captureTarget = KeyCaptureTarget.None;
+        CapturePanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void SetCapturedKey(KeyCaptureTarget target, string token)
+    {
         var box = target switch
         {
             KeyCaptureTarget.Action => ActionKeyBox,
@@ -308,8 +350,6 @@ public partial class MainWindow : Window
         };
 
         if (box is not null) SetKeyBox(box, token);
-        _captureTarget = KeyCaptureTarget.None;
-        CapturePanel.Visibility = Visibility.Collapsed;
         SetInfo($"Tecla capturada: {KeyMap.GetDisplayName(token)}.");
     }
 

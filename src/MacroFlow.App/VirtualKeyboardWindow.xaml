@@ -1,0 +1,38 @@
+<Window x:Class="MacroFlow.App.VirtualKeyboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Teclado virtual — MacroFlow" Width="980" Height="650" MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource WindowBackground}" Foreground="{StaticResource TextPrimary}">
+    <Grid Margin="22" Background="{StaticResource WindowBackground}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Elegir una tecla virtual" FontSize="25" FontWeight="SemiBold" />
+            <TextBlock x:Name="PurposeText" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" />
+            <TextBlock Text="Esto asigna la tecla al perfil; no la presiona en Windows ni en el juego."
+                       Foreground="{StaticResource TextSecondary}" Margin="0,3,0,0" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="TECLAS DE FUNCIÓN" Foreground="{StaticResource Primary}" FontWeight="Bold" />
+                <WrapPanel x:Name="FunctionKeysPanel" Margin="0,7,0,18" />
+
+                <TextBlock Text="LETRAS Y NÚMEROS" Foreground="{StaticResource Primary}" FontWeight="Bold" />
+                <WrapPanel x:Name="MainKeysPanel" Margin="0,7,0,18" />
+
+                <TextBlock Text="CONTROL Y NAVEGACIÓN" Foreground="{StaticResource Primary}" FontWeight="Bold" />
+                <WrapPanel x:Name="ControlKeysPanel" Margin="0,7,0,18" />
+
+                <TextBlock Text="TECLADO NUMÉRICO" Foreground="{StaticResource Primary}" FontWeight="Bold" />
+                <WrapPanel x:Name="NumpadKeysPanel" Margin="0,7,0,8" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <TextBlock Text="F13–F24 son útiles para asignar botones del mouse sin interferir con teclas normales."
+                       Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" />
+            <Button Content="Cancelar" HorizontalAlignment="Right" Click="Cancel_Click" Padding="20,9" />
+        </Grid>
+    </Grid>
+</Window>
