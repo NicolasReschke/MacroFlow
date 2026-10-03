@@ -18,6 +18,7 @@ MacroFlow es una aplicación de escritorio para Windows que ejecuta secuencias d
 - Captura directa de teclas físicas, incluyendo Shift/Ctrl izquierdos y derechos, signos y F1–F24.
 - Teclado virtual para asignar teclas ausentes en teclados compactos, como F13–F24.
 - Pausa prioritaria sincronizada con el envío de entradas para evitar que una acción nueva se cuele al entrar en parry o morph.
+- Editor de acciones abierto desde `+`, edición individual con clic derecho y reordenamiento mediante arrastrar y soltar.
 - Perfiles JSON locales.
 - Minimización a la bandeja.
 - Sin telemetría, red, drivers ni inyección de procesos.
@@ -25,7 +26,7 @@ MacroFlow es una aplicación de escritorio para Windows que ejecuta secuencias d
 ## Uso inicial
 
 1. Abrí MacroFlow y usá **Capturar** para elegir cada tecla de control.
-2. Elegí una acción, capturá su tecla y agregala a la secuencia.
+2. Presioná `+`, configurá una acción y agregala a la secuencia.
 3. Guardá el perfil.
 4. Probalo primero en un editor de texto, con una secuencia corta y sin repetición.
 5. `F6` inicia/detiene y `F12` ejecuta la parada de emergencia de forma predeterminada.
@@ -40,6 +41,7 @@ Los botones especiales del mouse pueden asignarse en G Hub a `F13`–`F24`; lueg
 - Los signos dependen de la distribución activa del teclado y se muestran con el nombre provisto por Windows.
 - Para una combinación, agregá tres acciones. Ejemplo: **Mantener Ctrl**, **Pulsar 1**, **Soltar Ctrl**.
 - Los clics izquierdo, derecho y central se eligen de una lista.
+- Arrastrá un bloque para cambiar su posición; hacé clic derecho para editarlo.
 
 ## Desarrollo
 

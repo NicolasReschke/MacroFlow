@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MacroFlow.Core\MacroFlow.Core.csproj" />
+    <Resource Include="Assets\app-icon.png" />
   </ItemGroup>
 
   <PropertyGroup>

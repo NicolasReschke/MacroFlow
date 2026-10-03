@@ -18,7 +18,6 @@ public partial class MainWindow : Window
     private enum KeyCaptureTarget
     {
         None,
-        Action,
         Toggle,
         Emergency,
         HoldPause,
@@ -40,6 +39,8 @@ public partial class MainWindow : Window
     private MacroProfile? _runningProfile;
     private bool _morphPaused;
     private KeyCaptureTarget _captureTarget;
+    private System.Windows.Point _dragStartPoint;
+    private MacroAction? _draggedAction;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
 
     public MainWindow()
@@ -51,7 +52,6 @@ public partial class MainWindow : Window
 
         ActionsGrid.ItemsSource = _actions;
         ActionsGrid.AlternationCount = 10_000;
-        SetKeyBox(ActionKeyBox, "1");
         LoadProfileIntoEditor(new MacroProfile());
 
         Loaded += Window_Loaded;
@@ -212,8 +212,6 @@ public partial class MainWindow : Window
         await _engine.SetPauseAsync(TargetPauseReason, shouldPause);
     }
 
-    private void Start_Click(object sender, RoutedEventArgs e) => StartMacro();
-
     private void StartMacro()
     {
         var profile = BuildProfileFromEditor(showErrors: true);
@@ -235,8 +233,6 @@ public partial class MainWindow : Window
         _targetTimer.Start();
         SetInfo($"Macro «{profile.Name}» iniciada. {profile.EmergencyStopKey} siempre la detiene.");
     }
-
-    private async void Stop_Click(object sender, RoutedEventArgs e) => await StopMacroAsync();
 
     private async Task StopMacroAsync()
     {
@@ -288,7 +284,6 @@ public partial class MainWindow : Window
         CapturePanel.Visibility = Visibility.Visible;
         CaptureText.Text = captureTarget switch
         {
-            KeyCaptureTarget.Action => "Presioná la tecla que querés agregar a la secuencia…",
             KeyCaptureTarget.Toggle => "Presioná la tecla para iniciar o detener la secuencia…",
             KeyCaptureTarget.Emergency => "Presioná la tecla de parada de emergencia…",
             KeyCaptureTarget.HoldPause => "Presioná la tecla que pausará mientras la mantengas…",
@@ -307,7 +302,6 @@ public partial class MainWindow : Window
 
         var purpose = captureTarget switch
         {
-            KeyCaptureTarget.Action => "Elegí la tecla que se agregará a la secuencia.",
             KeyCaptureTarget.Toggle => "Elegí la tecla para iniciar o detener la secuencia.",
             KeyCaptureTarget.Emergency => "Elegí la tecla de parada de emergencia.",
             KeyCaptureTarget.HoldPause => "Elegí la tecla que pausará mientras la mantengas.",
@@ -341,7 +335,6 @@ public partial class MainWindow : Window
     {
         var box = target switch
         {
-            KeyCaptureTarget.Action => ActionKeyBox,
             KeyCaptureTarget.Toggle => ToggleKeyBox,
             KeyCaptureTarget.Emergency => EmergencyKeyBox,
             KeyCaptureTarget.HoldPause => HoldPauseKeyBox,
@@ -353,61 +346,81 @@ public partial class MainWindow : Window
         SetInfo($"Tecla capturada: {KeyMap.GetDisplayName(token)}.");
     }
 
-    private void ActionKindCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void AddAction_Click(object sender, RoutedEventArgs e)
     {
-        if (ActionKeyPanel is null || MouseButtonPanel is null || NoValueText is null) return;
-        var kind = SelectedActionKind();
-        var isKey = kind is MacroActionKind.KeyPress or MacroActionKind.KeyDown or MacroActionKind.KeyUp;
-        ActionKeyPanel.Visibility = isKey ? Visibility.Visible : Visibility.Collapsed;
-        MouseButtonPanel.Visibility = kind == MacroActionKind.MouseClick ? Visibility.Visible : Visibility.Collapsed;
-        NoValueText.Visibility = kind == MacroActionKind.Delay ? Visibility.Visible : Visibility.Collapsed;
-
-        ActionDurationLabel.Content = kind switch
-        {
-            MacroActionKind.KeyPress => "Tiempo presionada (ms)",
-            MacroActionKind.Delay => "Tiempo de espera (ms)",
-            MacroActionKind.MouseClick => "Espera posterior (ms)",
-            _ => "Espera posterior (ms)"
-        };
-        ActionHelpText.Text = kind switch
-        {
-            MacroActionKind.KeyPress => "La tecla se presiona y se suelta automáticamente.",
-            MacroActionKind.KeyDown => "La tecla queda mantenida. Agregá después «Soltar una tecla» para liberarla.",
-            MacroActionKind.KeyUp => "Libera una tecla que antes dejaste mantenida.",
-            MacroActionKind.Delay => "La secuencia no hace nada durante este tiempo.",
-            MacroActionKind.MouseClick => "Hace un clic y espera el tiempo indicado antes de continuar.",
-            _ => string.Empty
-        };
-    }
-
-    private void AddAction_Click(object sender, RoutedEventArgs e)
-    {
-        var kind = SelectedActionKind();
-        if (kind is null || !int.TryParse(ActionDurationBox.Text, out var duration) || duration is < 0 or > 60_000)
-        {
-            ShowError("Elegí una acción y usá un tiempo entre 0 y 60000 milisegundos.");
-            return;
-        }
-
-        var value = kind == MacroActionKind.MouseClick
-            ? (MouseButtonCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "left"
-            : GetKeyToken(ActionKeyBox);
-        if (kind is MacroActionKind.KeyPress or MacroActionKind.KeyDown or MacroActionKind.KeyUp && !KeyMap.TryParse(value, out _))
-        {
-            ShowError("Primero usá «Capturar tecla» y presioná la tecla que querés agregar.");
-            return;
-        }
-
-        _actions.Add(new MacroAction { Kind = kind.Value, Value = kind == MacroActionKind.Delay ? string.Empty : value, DurationMs = duration });
+        if (_engine.State != MacroEngineState.Stopped) await StopMacroAsync();
+        var editor = new MacroActionEditorWindow { Owner = this };
+        if (editor.ShowDialog() != true || editor.ResultAction is not { } action) return;
+        _actions.Add(action);
         ActionsGrid.SelectedIndex = _actions.Count - 1;
-        ActionsGrid.ScrollIntoView(_actions[^1]);
-        SetInfo("Acción agregada a la secuencia.");
+        ActionsGrid.ScrollIntoView(action);
+        SetInfo("Acción agregada. Arrastrala para cambiar su posición.");
     }
 
-    private MacroActionKind? SelectedActionKind()
+    private async void ActionItem_RightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (ActionKindCombo.SelectedItem is ComboBoxItem item &&
-            Enum.TryParse<MacroActionKind>(item.Tag?.ToString(), out var kind)) return kind;
+        if (sender is not ListBoxItem { DataContext: MacroAction action }) return;
+        e.Handled = true;
+        if (_engine.State != MacroEngineState.Stopped) await StopMacroAsync();
+        var editor = new MacroActionEditorWindow(CloneAction(action)) { Owner = this };
+        if (editor.ShowDialog() != true || editor.ResultAction is not { } edited) return;
+        action.Kind = edited.Kind;
+        action.Value = edited.Value;
+        action.DurationMs = edited.DurationMs;
+        ActionsGrid.Items.Refresh();
+        ActionsGrid.SelectedItem = action;
+        SetInfo("Acción actualizada.");
+    }
+
+    private void ActionsGrid_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        _dragStartPoint = e.GetPosition(ActionsGrid);
+        _draggedAction = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject)?.DataContext as MacroAction;
+    }
+
+    private void ActionsGrid_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || _draggedAction is null) return;
+        var position = e.GetPosition(ActionsGrid);
+        if (Math.Abs(position.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(position.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+
+        var action = _draggedAction;
+        _draggedAction = null;
+        System.Windows.DragDrop.DoDragDrop(ActionsGrid, action, System.Windows.DragDropEffects.Move);
+    }
+
+    private void ActionsGrid_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(typeof(MacroAction))
+            ? System.Windows.DragDropEffects.Move
+            : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void ActionsGrid_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(MacroAction)) is not MacroAction action) return;
+        var oldIndex = _actions.IndexOf(action);
+        if (oldIndex < 0) return;
+
+        var targetItem = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject);
+        var insertionIndex = targetItem?.DataContext is MacroAction target ? _actions.IndexOf(target) : _actions.Count;
+        if (targetItem is not null && e.GetPosition(targetItem).X > targetItem.ActualWidth / 2) insertionIndex++;
+        if (oldIndex < insertionIndex) insertionIndex--;
+        insertionIndex = Math.Clamp(insertionIndex, 0, _actions.Count - 1);
+        if (oldIndex != insertionIndex) _actions.Move(oldIndex, insertionIndex);
+        ActionsGrid.SelectedItem = action;
+        SetInfo("Orden actualizado. Guardá el perfil para conservar el cambio.");
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match) return match;
+            current = VisualTreeHelper.GetParent(current);
+        }
         return null;
     }
 
@@ -532,7 +545,7 @@ public partial class MainWindow : Window
     private bool IsTargetAllowed(MacroProfile? profile) =>
         profile is not null && (!profile.RestrictToTargetProcess || ForegroundProcessService.IsForeground(profile.TargetProcessName));
 
-    private bool IsEditingText() => IsActive && System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox;
+    private bool IsEditingText() => !IsActive || System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox;
     private static bool Matches(int virtualKey, string key) => KeyMap.Matches(virtualKey, key);
     private static string GetKeyToken(System.Windows.Controls.TextBox box) => box.Tag as string ?? box.Text.Trim();
     private static void SetKeyBox(System.Windows.Controls.TextBox box, string token)
