@@ -15,6 +15,16 @@ namespace MacroFlow.App;
 
 public partial class MainWindow : Window
 {
+    private enum KeyCaptureTarget
+    {
+        None,
+        Action,
+        Toggle,
+        Emergency,
+        HoldPause,
+        Morph
+    }
+
     private const string HoldPauseReason = "Parry";
     private const string MorphPauseReason = "Morph";
     private const string TargetPauseReason = "Fuera del juego";
@@ -29,6 +39,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _resumeCancellation;
     private MacroProfile? _runningProfile;
     private bool _morphPaused;
+    private KeyCaptureTarget _captureTarget;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
 
     public MainWindow()
@@ -40,6 +51,7 @@ public partial class MainWindow : Window
 
         ActionsGrid.ItemsSource = _actions;
         ActionsGrid.AlternationCount = 10_000;
+        SetKeyBox(ActionKeyBox, "1");
         LoadProfileIntoEditor(new MacroProfile());
 
         Loaded += Window_Loaded;
@@ -106,7 +118,13 @@ public partial class MainWindow : Window
         var isFirstDown = e.IsDown && _physicalKeysDown.Add(e.VirtualKey);
         if (!e.IsDown) _physicalKeysDown.Remove(e.VirtualKey);
 
-        if (Matches(e.VirtualKey, EmergencyKeyBox.Text) && isFirstDown)
+        if (_captureTarget != KeyCaptureTarget.None && isFirstDown)
+        {
+            CompleteKeyCapture(e.VirtualKey);
+            return;
+        }
+
+        if (Matches(e.VirtualKey, GetKeyToken(EmergencyKeyBox)) && isFirstDown)
         {
             await StopMacroAsync();
             SetInfo("Parada de emergencia ejecutada.");
@@ -115,7 +133,7 @@ public partial class MainWindow : Window
 
         if (IsEditingText()) return;
 
-        if (Matches(e.VirtualKey, ToggleKeyBox.Text) && isFirstDown)
+        if (Matches(e.VirtualKey, GetKeyToken(ToggleKeyBox)) && isFirstDown)
         {
             if (_engine.State == MacroEngineState.Stopped)
             {
@@ -247,36 +265,126 @@ public partial class MainWindow : Window
         });
     }
 
+    private void CaptureKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string target } ||
+            !Enum.TryParse<KeyCaptureTarget>(target, out var captureTarget)) return;
+
+        _captureTarget = captureTarget;
+        CapturePanel.Visibility = Visibility.Visible;
+        CaptureText.Text = captureTarget switch
+        {
+            KeyCaptureTarget.Action => "Presioná la tecla que querés agregar a la secuencia…",
+            KeyCaptureTarget.Toggle => "Presioná la tecla para iniciar o detener la secuencia…",
+            KeyCaptureTarget.Emergency => "Presioná la tecla de parada de emergencia…",
+            KeyCaptureTarget.HoldPause => "Presioná la tecla que pausará mientras la mantengas…",
+            KeyCaptureTarget.Morph => "Presioná la tecla que alternará la pausa de morph…",
+            _ => "Presioná una tecla…"
+        };
+        SetInfo("Captura activa. La próxima tecla física quedará asignada.");
+    }
+
+    private void CancelCapture_Click(object sender, RoutedEventArgs e) => CancelKeyCapture();
+
+    private void CancelKeyCapture()
+    {
+        _captureTarget = KeyCaptureTarget.None;
+        CapturePanel.Visibility = Visibility.Collapsed;
+        SetInfo("Captura cancelada; no se modificó ninguna tecla.");
+    }
+
+    private void CompleteKeyCapture(int virtualKey)
+    {
+        var target = _captureTarget;
+        var token = KeyMap.ToToken(virtualKey);
+        var box = target switch
+        {
+            KeyCaptureTarget.Action => ActionKeyBox,
+            KeyCaptureTarget.Toggle => ToggleKeyBox,
+            KeyCaptureTarget.Emergency => EmergencyKeyBox,
+            KeyCaptureTarget.HoldPause => HoldPauseKeyBox,
+            KeyCaptureTarget.Morph => MorphKeyBox,
+            _ => null
+        };
+
+        if (box is not null) SetKeyBox(box, token);
+        _captureTarget = KeyCaptureTarget.None;
+        CapturePanel.Visibility = Visibility.Collapsed;
+        SetInfo($"Tecla capturada: {KeyMap.GetDisplayName(token)}.");
+    }
+
+    private void ActionKindCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ActionKeyPanel is null || MouseButtonPanel is null || NoValueText is null) return;
+        var kind = SelectedActionKind();
+        var isKey = kind is MacroActionKind.KeyPress or MacroActionKind.KeyDown or MacroActionKind.KeyUp;
+        ActionKeyPanel.Visibility = isKey ? Visibility.Visible : Visibility.Collapsed;
+        MouseButtonPanel.Visibility = kind == MacroActionKind.MouseClick ? Visibility.Visible : Visibility.Collapsed;
+        NoValueText.Visibility = kind == MacroActionKind.Delay ? Visibility.Visible : Visibility.Collapsed;
+
+        ActionDurationLabel.Content = kind switch
+        {
+            MacroActionKind.KeyPress => "Tiempo presionada (ms)",
+            MacroActionKind.Delay => "Tiempo de espera (ms)",
+            MacroActionKind.MouseClick => "Espera posterior (ms)",
+            _ => "Espera posterior (ms)"
+        };
+        ActionHelpText.Text = kind switch
+        {
+            MacroActionKind.KeyPress => "La tecla se presiona y se suelta automáticamente.",
+            MacroActionKind.KeyDown => "La tecla queda mantenida. Agregá después «Soltar una tecla» para liberarla.",
+            MacroActionKind.KeyUp => "Libera una tecla que antes dejaste mantenida.",
+            MacroActionKind.Delay => "La secuencia no hace nada durante este tiempo.",
+            MacroActionKind.MouseClick => "Hace un clic y espera el tiempo indicado antes de continuar.",
+            _ => string.Empty
+        };
+    }
+
     private void AddAction_Click(object sender, RoutedEventArgs e)
     {
-        if (ActionKindCombo.SelectedItem is not ComboBoxItem item ||
-            !Enum.TryParse<MacroActionKind>(item.Tag?.ToString(), out var kind) ||
-            !int.TryParse(ActionDurationBox.Text, out var duration) || duration < 0)
+        var kind = SelectedActionKind();
+        if (kind is null || !int.TryParse(ActionDurationBox.Text, out var duration) || duration is < 0 or > 60_000)
         {
-            ShowError("Elegí una acción y escribí una duración válida.");
+            ShowError("Elegí una acción y usá un tiempo entre 0 y 60000 milisegundos.");
             return;
         }
 
-        var value = ActionValueBox.Text.Trim();
+        var value = kind == MacroActionKind.MouseClick
+            ? (MouseButtonCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "left"
+            : GetKeyToken(ActionKeyBox);
         if (kind is MacroActionKind.KeyPress or MacroActionKind.KeyDown or MacroActionKind.KeyUp && !KeyMap.TryParse(value, out _))
         {
-            ShowError("Tecla no reconocida. Usá A–Z, 0–9, F1–F24 o nombres como Space, Ctrl y Enter.");
+            ShowError("Primero usá «Capturar tecla» y presioná la tecla que querés agregar.");
             return;
         }
 
-        if (kind == MacroActionKind.MouseClick && value.ToLowerInvariant() is not ("left" or "right" or "middle" or "izquierdo" or "derecho" or "medio"))
-        {
-            ShowError("Para un clic usá: left, right o middle.");
-            return;
-        }
-
-        _actions.Add(new MacroAction { Kind = kind, Value = kind == MacroActionKind.Delay ? string.Empty : value, DurationMs = duration });
+        _actions.Add(new MacroAction { Kind = kind.Value, Value = kind == MacroActionKind.Delay ? string.Empty : value, DurationMs = duration });
         ActionsGrid.SelectedIndex = _actions.Count - 1;
+        ActionsGrid.ScrollIntoView(_actions[^1]);
+        SetInfo("Acción agregada a la secuencia.");
+    }
+
+    private MacroActionKind? SelectedActionKind()
+    {
+        if (ActionKindCombo.SelectedItem is ComboBoxItem item &&
+            Enum.TryParse<MacroActionKind>(item.Tag?.ToString(), out var kind)) return kind;
+        return null;
     }
 
     private void DeleteAction_Click(object sender, RoutedEventArgs e)
     {
         if (ActionsGrid.SelectedItem is MacroAction action) _actions.Remove(action);
+    }
+
+    private void ClearActions_Click(object sender, RoutedEventArgs e)
+    {
+        if (_actions.Count == 0) return;
+        if (System.Windows.MessageBox.Show(this, "¿Vaciar toda la secuencia?", "MacroFlow", MessageBoxButton.YesNo,
+                MessageBoxImage.Question) == MessageBoxResult.Yes)
+        {
+            _actions.Clear();
+            SetInfo("Secuencia vaciada.");
+        }
     }
 
     private void MoveUp_Click(object sender, RoutedEventArgs e) => MoveSelected(-1);
@@ -338,7 +446,7 @@ public partial class MainWindow : Window
             return null;
         }
 
-        var keys = new[] { ToggleKeyBox.Text, EmergencyKeyBox.Text, HoldPauseKeyBox.Text, MorphKeyBox.Text };
+        var keys = new[] { GetKeyToken(ToggleKeyBox), GetKeyToken(EmergencyKeyBox), GetKeyToken(HoldPauseKeyBox), GetKeyToken(MorphKeyBox) };
         if (keys.Any(key => !KeyMap.TryParse(key, out _)))
         {
             if (showErrors) ShowError("Una de las teclas de control no es válida.");
@@ -355,10 +463,10 @@ public partial class MainWindow : Window
         {
             Name = ProfileNameBox.Text.Trim(),
             Repeat = RepeatCheck.IsChecked == true,
-            ToggleHotkey = ToggleKeyBox.Text.Trim(),
-            EmergencyStopKey = EmergencyKeyBox.Text.Trim(),
-            HoldPauseKey = HoldPauseKeyBox.Text.Trim(),
-            MorphToggleKey = MorphKeyBox.Text.Trim(),
+            ToggleHotkey = GetKeyToken(ToggleKeyBox),
+            EmergencyStopKey = GetKeyToken(EmergencyKeyBox),
+            HoldPauseKey = GetKeyToken(HoldPauseKeyBox),
+            MorphToggleKey = GetKeyToken(MorphKeyBox),
             ResumeDelayMs = resumeDelay,
             RestrictToTargetProcess = RestrictProcessCheck.IsChecked == true,
             TargetProcessName = TargetProcessBox.Text.Trim(),
@@ -369,10 +477,10 @@ public partial class MainWindow : Window
     private void LoadProfileIntoEditor(MacroProfile profile)
     {
         ProfileNameBox.Text = profile.Name;
-        ToggleKeyBox.Text = profile.ToggleHotkey;
-        EmergencyKeyBox.Text = profile.EmergencyStopKey;
-        HoldPauseKeyBox.Text = profile.HoldPauseKey;
-        MorphKeyBox.Text = profile.MorphToggleKey;
+        SetKeyBox(ToggleKeyBox, profile.ToggleHotkey);
+        SetKeyBox(EmergencyKeyBox, profile.EmergencyStopKey);
+        SetKeyBox(HoldPauseKeyBox, profile.HoldPauseKey);
+        SetKeyBox(MorphKeyBox, profile.MorphToggleKey);
         ResumeDelayBox.Text = profile.ResumeDelayMs.ToString();
         RepeatCheck.IsChecked = profile.Repeat;
         RestrictProcessCheck.IsChecked = profile.RestrictToTargetProcess;
@@ -385,7 +493,13 @@ public partial class MainWindow : Window
         profile is not null && (!profile.RestrictToTargetProcess || ForegroundProcessService.IsForeground(profile.TargetProcessName));
 
     private bool IsEditingText() => IsActive && System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox;
-    private static bool Matches(int virtualKey, string key) => KeyMap.TryParse(key, out var configured) && configured == virtualKey;
+    private static bool Matches(int virtualKey, string key) => KeyMap.Matches(virtualKey, key);
+    private static string GetKeyToken(System.Windows.Controls.TextBox box) => box.Tag as string ?? box.Text.Trim();
+    private static void SetKeyBox(System.Windows.Controls.TextBox box, string token)
+    {
+        box.Tag = token;
+        box.Text = KeyMap.GetDisplayName(token);
+    }
     private static MacroAction CloneAction(MacroAction action) => new() { Kind = action.Kind, Value = action.Value, DurationMs = action.DurationMs };
     private void SetInfo(string message) => InfoText.Text = message;
     private void ShowError(string message) => System.Windows.MessageBox.Show(this, message, "MacroFlow", MessageBoxButton.OK, MessageBoxImage.Warning);

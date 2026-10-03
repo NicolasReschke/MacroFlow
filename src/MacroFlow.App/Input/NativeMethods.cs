@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace MacroFlow.App.Input;
 
@@ -35,6 +36,12 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern uint SendInput(uint inputCount, INPUT[] inputs, int inputSize);
+
+    [DllImport("user32.dll")]
+    internal static extern uint MapVirtualKey(uint code, uint mapType);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern int GetKeyNameText(int longParameter, StringBuilder buffer, int size);
 
     [DllImport("user32.dll")]
     internal static extern IntPtr GetForegroundWindow();

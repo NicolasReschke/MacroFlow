@@ -25,9 +25,3 @@ jobs:
         run: dotnet build tests/MacroFlow.Core.Tests/MacroFlow.Core.Tests.csproj --configuration Release --no-restore
       - name: Tests
         run: dotnet run --project tests/MacroFlow.Core.Tests --configuration Release --no-build
-      - name: Publish portable
-        run: dotnet publish src/MacroFlow.App/MacroFlow.App.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/portable-win-x64 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false
-      - uses: actions/upload-artifact@v7
-        with:
-          name: MacroFlow-portable-win-x64
-          path: artifacts/portable-win-x64/
