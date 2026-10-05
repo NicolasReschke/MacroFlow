@@ -221,13 +221,26 @@
                                                 <TextBlock Grid.Column="2" Text="→" FontSize="18" Foreground="#667386"
                                                            VerticalAlignment="Center" HorizontalAlignment="Center" />
                                             </Grid>
+                                            <Grid x:Name="DelayContent" Width="86" Height="58" Visibility="Collapsed"
+                                                  VerticalAlignment="Center" ToolTip="Clic derecho para editar la espera">
+                                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding DurationMs}" FontSize="18" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource TextPrimary}" TextAlignment="Center" />
+                                                    <Border Width="48" Height="1" Margin="0,1,0,2"
+                                                            Background="{StaticResource TextPrimary}" />
+                                                    <TextBlock Text="ms" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource TextPrimary}" TextAlignment="Center" />
+                                                </StackPanel>
+                                            </Grid>
                                             <Button x:Name="InlineAddButton" Content="＋" Width="58" Height="58" Visibility="Collapsed"
                                                     FontSize="26" FontWeight="Light" ToolTip="Agregar una acción"
                                                     Background="#3A3F47" Click="AddAction_Click" />
                                         </Grid>
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding Kind}" Value="Delay">
-                                                <Setter TargetName="ActionTile" Property="Background" Value="#24536B" />
+                                                <Setter TargetName="TemplateRoot" Property="Width" Value="86" />
+                                                <Setter TargetName="ActionContent" Property="Visibility" Value="Collapsed" />
+                                                <Setter TargetName="DelayContent" Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Kind}" Value="MouseClick">
                                                 <Setter TargetName="ActionTile" Property="Background" Value="#54377A" />
@@ -243,6 +256,7 @@
                                             <DataTrigger Binding="{Binding IsAdd}" Value="True">
                                                 <Setter TargetName="TemplateRoot" Property="Width" Value="76" />
                                                 <Setter TargetName="ActionContent" Property="Visibility" Value="Collapsed" />
+                                                <Setter TargetName="DelayContent" Property="Visibility" Value="Collapsed" />
                                                 <Setter TargetName="InlineAddButton" Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                         </DataTemplate.Triggers>
