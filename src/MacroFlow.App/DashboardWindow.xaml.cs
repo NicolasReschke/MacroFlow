@@ -12,6 +12,7 @@ namespace MacroFlow.App;
 public partial class DashboardWindow : Window
 {
     private sealed record ProfileListItem(string Name, string Subtitle, bool IsDefault = false);
+    private enum CalloutSide { Top, Right, Bottom, Left }
 
     private readonly ObservableCollection<ProfileListItem> _profiles = [];
     private readonly ProfileStore _profileStore;
@@ -92,7 +93,6 @@ public partial class DashboardWindow : Window
     {
         _keyVisuals.Clear();
         AddKeyboardRow(FunctionKeysRow, ["ESCAPE", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"], actionKeys, controlKeys);
-        AddKeyboardRow(ExtraFunctionKeysRow, Enumerable.Range(13, 12).Select(number => $"F{number}"), actionKeys, controlKeys);
         AddKeyboardRow(NumberKeysRow, ["VK_C0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "VK_BD", "VK_BB", "BACKSPACE"], actionKeys, controlKeys);
         AddKeyboardRow(TopKeysRow, ["TAB", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "VK_DB", "VK_DD", "VK_DC"], actionKeys, controlKeys);
         AddKeyboardRow(HomeKeysRow, ["CAPSLOCK", "A", "S", "D", "F", "G", "H", "J", "K", "L", "VK_BA", "VK_DE", "ENTER"], actionKeys, controlKeys);
@@ -165,36 +165,91 @@ public partial class DashboardWindow : Window
             (Token: recorderTokens.LastOrDefault() ?? profile.RecorderHotkey, Label: "GRABACIÓN", Value: HotkeyGesture.GetDisplayName(profile.RecorderHotkey))
         };
 
+        var keyBounds = _keyVisuals.Values.Where(key => key.IsVisible && key.ActualWidth > 0).Select(key =>
+        {
+            var topLeft = key.TranslatePoint(new System.Windows.Point(), ControlCalloutCanvas);
+            var bottomRight = key.TranslatePoint(new System.Windows.Point(key.ActualWidth, key.ActualHeight), ControlCalloutCanvas);
+            return new System.Windows.Rect(topLeft, bottomRight);
+        }).ToArray();
+        if (keyBounds.Length == 0) return;
+        var keyboardBounds = keyBounds.Aggregate(System.Windows.Rect.Union);
+
         var located = callouts.Select(callout =>
         {
             var visualToken = ResolveVisualToken(callout.Token);
-            if (visualToken is null || !_keyVisuals.TryGetValue(visualToken, out var key)) return (Callout: callout, Key: (Border?)null, Point: new System.Windows.Point());
-            return (Callout: callout, Key: (Border?)key,
-                Point: key.TranslatePoint(new System.Windows.Point(key.ActualWidth / 2, key.ActualHeight / 2), ControlCalloutCanvas));
-        }).Where(item => item.Key is not null).OrderBy(item => item.Point.Y).ToArray();
+            if (visualToken is null || !_keyVisuals.TryGetValue(visualToken, out var key))
+                return (Callout: callout, Key: (Border?)null, Bounds: new System.Windows.Rect(), Side: CalloutSide.Top);
+            var topLeft = key.TranslatePoint(new System.Windows.Point(), ControlCalloutCanvas);
+            var bottomRight = key.TranslatePoint(new System.Windows.Point(key.ActualWidth, key.ActualHeight), ControlCalloutCanvas);
+            var bounds = new System.Windows.Rect(topLeft, bottomRight);
+            var side = bounds.Top + bounds.Height / 2 < keyboardBounds.Top + keyboardBounds.Height * 0.2
+                ? CalloutSide.Top
+                : bounds.Bottom > keyboardBounds.Bottom - keyboardBounds.Height * 0.27
+                    ? CalloutSide.Bottom
+                    : bounds.Left + bounds.Width / 2 < keyboardBounds.Left + keyboardBounds.Width / 2
+                        ? CalloutSide.Left
+                        : CalloutSide.Right;
+            return (Callout: callout, Key: (Border?)key, Bounds: bounds, Side: side);
+        }).Where(item => item.Key is not null).ToArray();
 
         if (located.Length == 0) return;
-        var targetX = Math.Max(ControlCalloutCanvas.ActualWidth - 245, ControlCalloutCanvas.ActualWidth * 0.72);
-        var top = 34d;
-        var gap = located.Length == 1 ? 0 : Math.Min(76, (ControlCalloutCanvas.ActualHeight - 68) / (located.Length - 1));
-        if (gap < 48) gap = 48;
-
-        for (var index = 0; index < located.Length; index++)
+        var sideIndexes = new Dictionary<CalloutSide, int>();
+        foreach (var item in located.OrderBy(item => item.Side is CalloutSide.Top or CalloutSide.Bottom
+                     ? item.Bounds.Left : item.Bounds.Top))
         {
-            var item = located[index];
-            var targetY = Math.Min(ControlCalloutCanvas.ActualHeight - 30, top + gap * index);
-            var elbowX = Math.Max(item.Point.X + 24, targetX - 58);
+            sideIndexes.TryGetValue(item.Side, out var sideIndex);
+            sideIndexes[item.Side] = sideIndex + 1;
+            var centerX = item.Bounds.Left + item.Bounds.Width / 2;
+            var centerY = item.Bounds.Top + item.Bounds.Height / 2;
+            System.Windows.Point source;
+            System.Windows.Point elbow;
+            System.Windows.Point terminal;
+            double labelX;
+            double labelY;
+
+            switch (item.Side)
+            {
+                case CalloutSide.Top:
+                    source = new System.Windows.Point(centerX, item.Bounds.Top);
+                    var topY = keyboardBounds.Top - 20 - sideIndex % 2 * 42;
+                    var topToLeft = centerX < keyboardBounds.Left + keyboardBounds.Width / 2;
+                    elbow = new System.Windows.Point(centerX, topY);
+                    terminal = new System.Windows.Point(centerX + (topToLeft ? -34 : 34), topY);
+                    labelX = Math.Clamp(topToLeft ? terminal.X - 150 : terminal.X + 7, 4, ControlCalloutCanvas.ActualWidth - 154);
+                    labelY = Math.Max(0, topY - 38);
+                    break;
+                case CalloutSide.Bottom:
+                    source = new System.Windows.Point(centerX, item.Bounds.Bottom);
+                    var bottomY = keyboardBounds.Bottom + 20 + sideIndex % 2 * 42;
+                    var bottomToLeft = centerX < keyboardBounds.Left + keyboardBounds.Width / 2;
+                    elbow = new System.Windows.Point(centerX, bottomY);
+                    terminal = new System.Windows.Point(centerX + (bottomToLeft ? -34 : 34), bottomY);
+                    labelX = Math.Clamp(bottomToLeft ? terminal.X - 150 : terminal.X + 7, 4, ControlCalloutCanvas.ActualWidth - 154);
+                    labelY = Math.Min(ControlCalloutCanvas.ActualHeight - 38, bottomY + 4);
+                    break;
+                case CalloutSide.Left:
+                    source = new System.Windows.Point(item.Bounds.Left, centerY);
+                    var leftX = keyboardBounds.Left - 24 - sideIndex % 2 * 30;
+                    elbow = new System.Windows.Point(leftX, centerY);
+                    terminal = new System.Windows.Point(Math.Max(8, leftX - 34), centerY);
+                    labelX = Math.Max(4, terminal.X - 150);
+                    labelY = Math.Clamp(centerY - 19, 0, ControlCalloutCanvas.ActualHeight - 40);
+                    break;
+                default:
+                    source = new System.Windows.Point(item.Bounds.Right, centerY);
+                    var rightX = keyboardBounds.Right + 24 + sideIndex % 2 * 30;
+                    elbow = new System.Windows.Point(rightX, centerY);
+                    terminal = new System.Windows.Point(Math.Min(ControlCalloutCanvas.ActualWidth - 154, rightX + 34), centerY);
+                    labelX = Math.Min(ControlCalloutCanvas.ActualWidth - 150, terminal.X + 7);
+                    labelY = Math.Clamp(centerY - 19, 0, ControlCalloutCanvas.ActualHeight - 40);
+                    break;
+            }
+
             var line = new System.Windows.Shapes.Polyline
             {
                 Stroke = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x55, 0x78, 0x76)),
                 StrokeThickness = 1,
-                Points = new PointCollection
-                {
-                    item.Point,
-                    new System.Windows.Point(Math.Min(item.Point.X + 30, elbowX), item.Point.Y),
-                    new System.Windows.Point(elbowX, targetY),
-                    new System.Windows.Point(targetX, targetY)
-                }
+                Points = new PointCollection { source, elbow, terminal }
             };
             ControlCalloutCanvas.Children.Add(line);
 
@@ -206,11 +261,11 @@ public partial class DashboardWindow : Window
                 Stroke = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xFF, 0xFC)),
                 StrokeThickness = 1
             };
-            Canvas.SetLeft(dot, item.Point.X - 4);
-            Canvas.SetTop(dot, item.Point.Y - 4);
+            Canvas.SetLeft(dot, source.X - 4);
+            Canvas.SetTop(dot, source.Y - 4);
             ControlCalloutCanvas.Children.Add(dot);
 
-            var label = new StackPanel { Width = 220 };
+            var label = new StackPanel { Width = 150 };
             label.Children.Add(new TextBlock
             {
                 Text = item.Callout.Label,
@@ -226,8 +281,8 @@ public partial class DashboardWindow : Window
                 FontWeight = FontWeights.Bold,
                 Margin = new Thickness(0, 2, 0, 0)
             });
-            Canvas.SetLeft(label, targetX + 9);
-            Canvas.SetTop(label, targetY - 19);
+            Canvas.SetLeft(label, labelX);
+            Canvas.SetTop(label, labelY);
             ControlCalloutCanvas.Children.Add(label);
         }
     }

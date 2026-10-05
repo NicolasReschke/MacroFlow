@@ -126,10 +126,11 @@
                             <Grid>
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <TextBlock Text="MAPA DEL TECLADO" Foreground="{StaticResource Primary}" FontSize="12" FontWeight="Bold" />
-                                <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="DownOnly" Margin="0,16,300,14">
+                                <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="DownOnly"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                                         Margin="150,82,150,82">
                                     <StackPanel Width="940">
                                         <StackPanel x:Name="FunctionKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" />
-                                        <StackPanel x:Name="ExtraFunctionKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
                                         <StackPanel x:Name="NumberKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,11,0,0" />
                                         <StackPanel x:Name="TopKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
                                         <StackPanel x:Name="HomeKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
