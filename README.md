@@ -19,6 +19,8 @@ MacroFlow es una aplicación de escritorio para Windows que ejecuta secuencias d
 - Teclado virtual para asignar teclas ausentes en teclados compactos, como F13–F24.
 - Pausa prioritaria sincronizada con el envío de entradas para evitar que una acción nueva se cuele al entrar en parry o morph.
 - Editor de acciones abierto desde `+`, edición individual con clic derecho y reordenamiento mediante arrastrar y soltar.
+- Importación y exportación de perfiles JSON legibles y no ejecutables.
+- Grabación de teclado y mouse con tiempos reales, combinaciones y revisión previa.
 - Perfiles JSON locales.
 - Minimización a la bandeja.
 - Sin telemetría, red, drivers ni inyección de procesos.
@@ -42,6 +44,16 @@ Los botones especiales del mouse pueden asignarse en G Hub a `F13`–`F24`; lueg
 - Para una combinación, agregá tres acciones. Ejemplo: **Mantener Ctrl**, **Pulsar 1**, **Soltar Ctrl**.
 - Los clics izquierdo, derecho y central se eligen de una lista.
 - Arrastrá un bloque para cambiar su posición; hacé clic derecho para editarlo.
+
+## Perfiles e intercambio
+
+Los perfiles se guardan en `Documentos\MacroFlow\Macros`. **Importar JSON** valida y copia un perfil a esa carpeta; **Exportar JSON** permite compartirlo. MacroFlow no ejecuta archivos AHK ni código incluido en documentos externos.
+
+## Grabación
+
+La combinación predeterminada es `Ctrl + F8` y puede cambiarse desde **Grabadora**. Presionala con el juego en primer plano, realizá la rotación y volvé a presionarla para finalizar. La revisión permite reemplazar la secuencia actual, agregar la grabación al final o descartarla.
+
+Se registran entradas físicas de teclado, clic izquierdo/derecho/central y botones laterales 1/2. La combinación que inicia o detiene la grabación no se incorpora al resultado. MacroFlow registra entradas y tiempos; no puede conocer cooldowns, confirmaciones del servidor ni el resultado de una skill.
 
 ## Desarrollo
 

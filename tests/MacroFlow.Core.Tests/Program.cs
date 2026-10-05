@@ -1,12 +1,15 @@
 using System.Collections.Concurrent;
 using MacroFlow.Core.Engine;
 using MacroFlow.Core.Models;
+using MacroFlow.Core.Recording;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
     ("PauseController bloquea y reanuda", PauseControllerBlocksAndResumes),
     ("MacroEngine ejecuta una secuencia", EngineExecutesSequence),
-    ("Pausar libera entradas mantenidas", PauseReleasesHeldInputs)
+    ("Pausar libera entradas mantenidas", PauseReleasesHeldInputs),
+    ("Grabadora conserva tiempos y combinaciones", RecorderPreservesTimingAndChords),
+    ("Grabadora elimina la hotkey final", RecorderTrimsStopHotkey)
 };
 
 var failed = 0;
@@ -74,6 +77,40 @@ static async Task PauseReleasesHeldInputs()
     await engine.SetPauseAsync("Seguridad", true);
     Assert(input.ReleaseCount > 0, "La pausa no liberó las entradas.");
     await engine.StopAsync();
+}
+
+static Task RecorderPreservesTimingAndChords()
+{
+    var recorder = new MacroRecorder();
+    recorder.Start(1_000);
+    recorder.RecordKey("CTRL", true, 1_010);
+    recorder.RecordKey("1", true, 1_060);
+    recorder.RecordKey("1", false, 1_130);
+    recorder.RecordKey("CTRL", false, 1_150);
+    var actions = recorder.Stop(1_160);
+
+    Assert(actions.Count == 5, $"Se esperaban 5 acciones y se obtuvieron {actions.Count}.");
+    Assert(actions[0].Kind == MacroActionKind.KeyDown && actions[0].Value == "CTRL", "Falta Ctrl abajo.");
+    Assert(actions[1].Kind == MacroActionKind.Delay && actions[1].DurationMs == 50, "Intervalo inicial incorrecto.");
+    Assert(actions[2].Kind == MacroActionKind.KeyPress && actions[2].Value == "1" && actions[2].DurationMs == 70,
+        "La pulsación simple no se compactó correctamente.");
+    Assert(actions[3].Kind == MacroActionKind.Delay && actions[3].DurationMs == 20, "Intervalo final incorrecto.");
+    Assert(actions[4].Kind == MacroActionKind.KeyUp && actions[4].Value == "CTRL", "Falta Ctrl arriba.");
+    return Task.CompletedTask;
+}
+
+static Task RecorderTrimsStopHotkey()
+{
+    var recorder = new MacroRecorder();
+    recorder.Start(0);
+    recorder.RecordKey("2", true, 10);
+    recorder.RecordKey("2", false, 60);
+    recorder.RecordKey("CTRL", true, 100);
+    var actions = recorder.Stop(110, ["CTRL", "F8"]);
+
+    Assert(actions.All(action => action.Value != "CTRL"), "La combinación para detener quedó grabada.");
+    Assert(actions.Any(action => action.Kind == MacroActionKind.KeyPress && action.Value == "2"), "Se perdió la tecla grabada.");
+    return Task.CompletedTask;
 }
 
 static async Task WaitUntil(Func<bool> predicate)

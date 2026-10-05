@@ -30,16 +30,18 @@ internal sealed class WindowsInputEmitter : IInputEmitter
     public Task MouseClickAsync(string button, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var (down, up) = button.Trim().ToLowerInvariant() switch
+        var (down, up, data) = button.Trim().ToLowerInvariant() switch
         {
-            "left" or "izquierdo" => (NativeMethods.MouseLeftDown, NativeMethods.MouseLeftUp),
-            "right" or "derecho" => (NativeMethods.MouseRightDown, NativeMethods.MouseRightUp),
-            "middle" or "medio" => (NativeMethods.MouseMiddleDown, NativeMethods.MouseMiddleUp),
+            "left" or "izquierdo" => (NativeMethods.MouseLeftDown, NativeMethods.MouseLeftUp, 0U),
+            "right" or "derecho" => (NativeMethods.MouseRightDown, NativeMethods.MouseRightUp, 0U),
+            "middle" or "medio" => (NativeMethods.MouseMiddleDown, NativeMethods.MouseMiddleUp, 0U),
+            "xbutton1" => (NativeMethods.MouseXDown, NativeMethods.MouseXUp, 1U),
+            "xbutton2" => (NativeMethods.MouseXDown, NativeMethods.MouseXUp, 2U),
             _ => throw new ArgumentException($"Botón de mouse no reconocido: {button}", nameof(button))
         };
 
-        SendMouse(down);
-        SendMouse(up);
+        SendMouse(down, data);
+        SendMouse(up, data);
         return Task.CompletedTask;
     }
 
@@ -84,7 +86,7 @@ internal sealed class WindowsInputEmitter : IInputEmitter
         Send(inputs);
     }
 
-    private static void SendMouse(uint flags)
+    private static void SendMouse(uint flags, uint mouseData = 0)
     {
         var inputs = new[]
         {
@@ -93,7 +95,7 @@ internal sealed class WindowsInputEmitter : IInputEmitter
                 Type = NativeMethods.InputMouse,
                 Data = new NativeMethods.InputUnion
                 {
-                    Mouse = new NativeMethods.MOUSEINPUT { Flags = flags, ExtraInfo = NativeMethods.MacroFlowMarker }
+                    Mouse = new NativeMethods.MOUSEINPUT { Flags = flags, MouseData = mouseData, ExtraInfo = NativeMethods.MacroFlowMarker }
                 }
             }
         };

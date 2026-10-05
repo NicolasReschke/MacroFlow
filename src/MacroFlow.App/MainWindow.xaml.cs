@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,6 +12,7 @@ using MacroFlow.App.Services;
 using MacroFlow.Core.Engine;
 using MacroFlow.Core.Models;
 using MacroFlow.Core.Persistence;
+using MacroFlow.Core.Recording;
 
 namespace MacroFlow.App;
 
@@ -22,7 +24,8 @@ public partial class MainWindow : Window
         Toggle,
         Emergency,
         HoldPause,
-        Morph
+        Morph,
+        Recorder
     }
 
     private const string HoldPauseReason = "Parry";
@@ -32,6 +35,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<MacroAction> _actions = [];
     private readonly WindowsInputEmitter _input = new();
     private readonly GlobalKeyboardHook _keyboardHook = new();
+    private readonly GlobalMouseHook _mouseHook = new();
+    private readonly MacroRecorder _recorder = new();
     private readonly MacroEngine _engine;
     private readonly ProfileStore _profileStore;
     private readonly HashSet<int> _physicalKeysDown = [];
@@ -49,7 +54,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _engine = new MacroEngine(_input);
-        _profileStore = new ProfileStore(Path.Combine(AppContext.BaseDirectory, "profiles"));
+        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var profileDirectory = Path.Combine(documents, "MacroFlow", "Macros");
+        _profileStore = new ProfileStore(profileDirectory);
+        MigrateLegacyProfiles(Path.Combine(AppContext.BaseDirectory, "profiles"), profileDirectory);
         _targetTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, TargetTimer_Tick, Dispatcher);
 
         ActionsGrid.ItemsSource = new CompositeCollection
@@ -63,6 +71,7 @@ public partial class MainWindow : Window
         Loaded += Window_Loaded;
         StateChanged += Window_StateChanged;
         _keyboardHook.KeyChanged += KeyboardHook_KeyChanged;
+        _mouseHook.ButtonChanged += MouseHook_ButtonChanged;
         _engine.StateChanged += Engine_StateChanged;
         _engine.Faulted += Engine_Faulted;
     }
@@ -72,6 +81,7 @@ public partial class MainWindow : Window
         try
         {
             _keyboardHook.Start();
+            _mouseHook.Start();
             CreateTrayIcon();
             RefreshProfileList();
             SetInfo("Listo. Configurá las teclas y guardá un perfil antes de jugar.");
@@ -133,14 +143,47 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(async () => await HandlePhysicalKeyAsync(e));
     }
 
+    private void MouseHook_ButtonChanged(object? sender, GlobalMouseEvent e)
+    {
+        if (e.IsInjected || !e.IsDown || !_recorder.IsRecording) return;
+        _recorder.RecordMouseClick(e.Button, Environment.TickCount64);
+    }
+
     private async Task HandlePhysicalKeyAsync(GlobalKeyEvent e)
     {
         var isFirstDown = e.IsDown && _physicalKeysDown.Add(e.VirtualKey);
         if (!e.IsDown) _physicalKeysDown.Remove(e.VirtualKey);
 
-        if (_captureTarget != KeyCaptureTarget.None && isFirstDown)
+        if (_captureTarget != KeyCaptureTarget.None)
         {
+            if (!e.IsDown) return;
+            if (!isFirstDown) return;
+            if (_captureTarget == KeyCaptureTarget.Recorder)
+            {
+                if (HotkeyGesture.IsModifier(e.VirtualKey))
+                {
+                    CaptureText.Text = "Mantené el modificador y presioná la tecla principal…";
+                    return;
+                }
+                CompleteRecorderHotkeyCapture(e.VirtualKey);
+                return;
+            }
             CompleteKeyCapture(e.VirtualKey);
+            return;
+        }
+
+        if (IsEditingText()) return;
+
+        var recorderGesture = GetRecorderHotkey();
+        if (isFirstDown && HotkeyGesture.Matches(e.VirtualKey, _physicalKeysDown, recorderGesture))
+        {
+            await ToggleRecordingAsync(recorderGesture);
+            return;
+        }
+
+        if (_recorder.IsRecording)
+        {
+            _recorder.RecordKey(KeyMap.ToToken(e.VirtualKey), e.IsDown, Environment.TickCount64);
             return;
         }
 
@@ -150,8 +193,6 @@ public partial class MainWindow : Window
             SetInfo("Parada de emergencia ejecutada.");
             return;
         }
-
-        if (IsEditingText()) return;
 
         if (Matches(e.VirtualKey, GetKeyToken(ToggleKeyBox)) && isFirstDown)
         {
@@ -189,6 +230,51 @@ public partial class MainWindow : Window
             await _engine.SetPauseAsync(MorphPauseReason, _morphPaused);
             SetInfo(_morphPaused ? "Pausa de morph activada." : "Pausa de morph desactivada.");
         }
+    }
+
+    private async Task ToggleRecordingAsync(string gesture)
+    {
+        if (_recorder.IsRecording)
+        {
+            var actions = _recorder.Stop(Environment.TickCount64, HotkeyGesture.Tokens(gesture));
+            UpdateStatus();
+            if (actions.Count == 0)
+            {
+                SetInfo("La grabación terminó sin entradas para agregar.");
+                return;
+            }
+
+            ShowFromTray();
+            var review = new RecordingReviewWindow(actions) { Owner = this };
+            _modalWindowOpen = true;
+            bool accepted;
+            try
+            {
+                accepted = review.ShowDialog() == true;
+            }
+            finally
+            {
+                _modalWindowOpen = false;
+            }
+
+            if (!accepted) { SetInfo("Grabación descartada."); return; }
+            if (review.Result == RecordingReviewResult.Replace) _actions.Clear();
+            foreach (var action in actions) _actions.Add(CloneAction(action));
+            SetInfo($"Grabación agregada: {actions.Count} acciones. Guardá el perfil para conservarla.");
+            return;
+        }
+
+        var profile = BuildProfileFromEditor(showErrors: false, requireActions: false);
+        if (profile is null || !IsTargetAllowed(profile))
+        {
+            SetInfo("No se inició la grabación: el juego configurado no está en primer plano.");
+            return;
+        }
+
+        if (_engine.State != MacroEngineState.Stopped) await StopMacroAsync();
+        _recorder.Start(Environment.TickCount64);
+        UpdateStatus();
+        SetInfo($"Grabando entradas físicas… Presioná {HotkeyGesture.GetDisplayName(gesture)} para terminar.");
     }
 
     private void ScheduleHoldPauseRelease(int delayMs)
@@ -254,6 +340,14 @@ public partial class MainWindow : Window
 
     private void UpdateStatus()
     {
+        if (_recorder.IsRecording)
+        {
+            StatusText.Text = "GRABANDO";
+            StatusDot.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68));
+            PauseReasonsText.Text = "Sólo entradas físicas";
+            if (_trayIcon is not null) _trayIcon.Text = "MacroFlow — grabando";
+            return;
+        }
         StatusText.Text = _engine.State switch
         {
             MacroEngineState.Running => "ACTIVO",
@@ -294,6 +388,7 @@ public partial class MainWindow : Window
             KeyCaptureTarget.Emergency => "Presioná la tecla de parada de emergencia…",
             KeyCaptureTarget.HoldPause => "Presioná la tecla que pausará mientras la mantengas…",
             KeyCaptureTarget.Morph => "Presioná la tecla que alternará la pausa de morph…",
+            KeyCaptureTarget.Recorder => "Mantené Ctrl, Shift o Alt si querés y presioná la tecla principal…",
             _ => "Presioná una tecla…"
         };
         SetInfo("Captura activa. La próxima tecla física quedará asignada.");
@@ -343,6 +438,15 @@ public partial class MainWindow : Window
         SetCapturedKey(target, token);
         _captureTarget = KeyCaptureTarget.None;
         CapturePanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void CompleteRecorderHotkeyCapture(int virtualKey)
+    {
+        var gesture = HotkeyGesture.FromPressedKeys(virtualKey, _physicalKeysDown);
+        SetRecorderHotkey(gesture);
+        _captureTarget = KeyCaptureTarget.None;
+        CapturePanel.Visibility = Visibility.Collapsed;
+        SetInfo($"Combinación de grabación: {HotkeyGesture.GetDisplayName(gesture)}.");
     }
 
     private void SetCapturedKey(KeyCaptureTarget target, string token)
@@ -510,6 +614,59 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ImportProfile_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Importar macro de MacroFlow",
+            Filter = "Perfil de MacroFlow (*.json)|*.json|Todos los archivos (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            var profile = await _profileStore.LoadFromPathAsync(dialog.FileName);
+            ValidateProfileKeys(profile);
+            await _profileStore.SaveAsync(profile);
+            LoadProfileIntoEditor(profile);
+            RefreshProfileList(profile.Name);
+            SetInfo($"Perfil «{profile.Name}» importado.");
+        }
+        catch (Exception exception)
+        {
+            ShowError($"No se pudo importar el perfil: {exception.Message}");
+        }
+    }
+
+    private async void ExportProfile_Click(object sender, RoutedEventArgs e)
+    {
+        var profile = BuildProfileFromEditor(showErrors: true);
+        if (profile is null) return;
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Exportar macro de MacroFlow",
+            Filter = "Perfil de MacroFlow (*.json)|*.json",
+            FileName = profile.Name + ".json",
+            DefaultExt = ".json",
+            AddExtension = true
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            await _profileStore.ExportAsync(profile, dialog.FileName);
+            SetInfo($"Perfil exportado a: {dialog.FileName}");
+        }
+        catch (Exception exception)
+        {
+            ShowError($"No se pudo exportar el perfil: {exception.Message}");
+        }
+    }
+
+    private void OpenProfilesFolder_Click(object sender, RoutedEventArgs e)
+    {
+        Directory.CreateDirectory(_profileStore.DirectoryPath);
+        Process.Start(new ProcessStartInfo(_profileStore.DirectoryPath) { UseShellExecute = true });
+    }
+
     private void RefreshProfiles_Click(object sender, RoutedEventArgs e) => RefreshProfileList();
 
     private async void ProfilesCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -517,7 +674,9 @@ public partial class MainWindow : Window
         if (ProfilesCombo.SelectedItem is not string name) return;
         try
         {
-            LoadProfileIntoEditor(await _profileStore.LoadAsync(name));
+            var profile = await _profileStore.LoadAsync(name);
+            ValidateProfileKeys(profile);
+            LoadProfileIntoEditor(profile);
             SetInfo($"Perfil «{name}» cargado.");
         }
         catch (Exception exception)
@@ -532,7 +691,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(selected)) ProfilesCombo.SelectedItem = selected;
     }
 
-    private MacroProfile? BuildProfileFromEditor(bool showErrors)
+    private MacroProfile? BuildProfileFromEditor(bool showErrors, bool requireActions = true)
     {
         if (string.IsNullOrWhiteSpace(ProfileNameBox.Text) ||
             !int.TryParse(ResumeDelayBox.Text, out var resumeDelay) || resumeDelay is < 0 or > 10_000)
@@ -542,13 +701,13 @@ public partial class MainWindow : Window
         }
 
         var keys = new[] { GetKeyToken(ToggleKeyBox), GetKeyToken(EmergencyKeyBox), GetKeyToken(HoldPauseKeyBox), GetKeyToken(MorphKeyBox) };
-        if (keys.Any(key => !KeyMap.TryParse(key, out _)))
+        if (keys.Any(key => !KeyMap.TryParse(key, out _)) || !HotkeyGesture.TryParse(GetRecorderHotkey(), out _))
         {
-            if (showErrors) ShowError("Una de las teclas de control no es válida.");
+            if (showErrors) ShowError("Una de las teclas de control o la combinación de grabación no es válida.");
             return null;
         }
 
-        if (_actions.Count == 0)
+        if (requireActions && _actions.Count == 0)
         {
             if (showErrors) ShowError("Agregá al menos una acción a la macro.");
             return null;
@@ -562,6 +721,7 @@ public partial class MainWindow : Window
             EmergencyStopKey = GetKeyToken(EmergencyKeyBox),
             HoldPauseKey = GetKeyToken(HoldPauseKeyBox),
             MorphToggleKey = GetKeyToken(MorphKeyBox),
+            RecorderHotkey = GetRecorderHotkey(),
             ResumeDelayMs = resumeDelay,
             RestrictToTargetProcess = RestrictProcessCheck.IsChecked == true,
             TargetProcessName = TargetProcessBox.Text.Trim(),
@@ -576,6 +736,7 @@ public partial class MainWindow : Window
         SetKeyBox(EmergencyKeyBox, profile.EmergencyStopKey);
         SetKeyBox(HoldPauseKeyBox, profile.HoldPauseKey);
         SetKeyBox(MorphKeyBox, profile.MorphToggleKey);
+        SetRecorderHotkey(string.IsNullOrWhiteSpace(profile.RecorderHotkey) ? "CTRL+F8" : profile.RecorderHotkey);
         ResumeDelayBox.Text = profile.ResumeDelayMs.ToString();
         RepeatCheck.IsChecked = profile.Repeat;
         RestrictProcessCheck.IsChecked = profile.RestrictToTargetProcess;
@@ -591,18 +752,49 @@ public partial class MainWindow : Window
         (IsActive && System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox);
     private static bool Matches(int virtualKey, string key) => KeyMap.Matches(virtualKey, key);
     private static string GetKeyToken(System.Windows.Controls.TextBox box) => box.Tag as string ?? box.Text.Trim();
+    private string GetRecorderHotkey() => RecorderHotkeyBox.Tag as string ?? "CTRL+F8";
+    private void SetRecorderHotkey(string gesture)
+    {
+        RecorderHotkeyBox.Tag = gesture;
+        RecorderHotkeyBox.Text = HotkeyGesture.GetDisplayName(gesture);
+    }
     private static void SetKeyBox(System.Windows.Controls.TextBox box, string token)
     {
         box.Tag = token;
         box.Text = KeyMap.GetDisplayName(token);
     }
     private static MacroAction CloneAction(MacroAction action) => new() { Kind = action.Kind, Value = action.Value, DurationMs = action.DurationMs };
+    private static void ValidateProfileKeys(MacroProfile profile)
+    {
+        var controlKeys = new[] { profile.ToggleHotkey, profile.EmergencyStopKey, profile.HoldPauseKey, profile.MorphToggleKey };
+        if (controlKeys.Any(key => !KeyMap.TryParse(key, out _)) || !HotkeyGesture.TryParse(profile.RecorderHotkey, out _))
+            throw new InvalidDataException("El perfil contiene una tecla de control no válida.");
+        if (profile.Actions.Any(action =>
+                action.Kind is MacroActionKind.KeyPress or MacroActionKind.KeyDown or MacroActionKind.KeyUp &&
+                !KeyMap.TryParse(action.Value, out _)))
+            throw new InvalidDataException("El perfil contiene una acción de teclado no válida.");
+        if (profile.Actions.Any(action => action.Kind == MacroActionKind.MouseClick &&
+                action.Value.ToLowerInvariant() is not ("left" or "right" or "middle" or "xbutton1" or "xbutton2")))
+            throw new InvalidDataException("El perfil contiene un botón de mouse no válido.");
+    }
+
+    private static void MigrateLegacyProfiles(string legacyDirectory, string newDirectory)
+    {
+        if (!Directory.Exists(legacyDirectory) || Path.GetFullPath(legacyDirectory) == Path.GetFullPath(newDirectory)) return;
+        Directory.CreateDirectory(newDirectory);
+        foreach (var source in Directory.EnumerateFiles(legacyDirectory, "*.json", SearchOption.TopDirectoryOnly))
+        {
+            var destination = Path.Combine(newDirectory, Path.GetFileName(source));
+            if (!File.Exists(destination)) File.Copy(source, destination);
+        }
+    }
     private void SetInfo(string message) => InfoText.Text = message;
     private void ShowError(string message) => System.Windows.MessageBox.Show(this, message, "MacroFlow", MessageBoxButton.OK, MessageBoxImage.Warning);
 
     protected override void OnClosing(CancelEventArgs e)
     {
         _keyboardHook.Dispose();
+        _mouseHook.Dispose();
         _targetTimer.Stop();
         _resumeCancellation?.Cancel();
         _engine.StopAsync().GetAwaiter().GetResult();

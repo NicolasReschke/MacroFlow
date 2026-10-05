@@ -34,6 +34,8 @@ public sealed class ActionValueLabelConverter : IValueConverter
                 "left" or "izquierdo" => "Botón izquierdo",
                 "right" or "derecho" => "Botón derecho",
                 "middle" or "medio" => "Botón central",
+                "xbutton1" => "Botón lateral 1",
+                "xbutton2" => "Botón lateral 2",
                 _ => action.Value
             },
             _ => KeyMap.GetDisplayName(action.Value)

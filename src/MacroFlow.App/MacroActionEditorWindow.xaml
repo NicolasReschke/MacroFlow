@@ -44,6 +44,8 @@
                         <ComboBoxItem Content="Izquierdo" Tag="left" />
                         <ComboBoxItem Content="Derecho" Tag="right" />
                         <ComboBoxItem Content="Central" Tag="middle" />
+                        <ComboBoxItem Content="Lateral 1" Tag="xbutton1" />
+                        <ComboBoxItem Content="Lateral 2" Tag="xbutton2" />
                     </ComboBox>
                 </StackPanel>
 
