@@ -20,9 +20,21 @@
         <Grid Grid.Row="0" Margin="0,0,0,14">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="MacroFlow" FontSize="30" FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="MacroFlow" FontSize="30" FontWeight="SemiBold" />
+                    <Border Margin="14,5,0,4" Padding="9,3" VerticalAlignment="Center"
+                            Background="{StaticResource AccentSurface}" BorderBrush="{StaticResource Primary}"
+                            BorderThickness="1" CornerRadius="2">
+                        <TextBlock Text="CONTROL // 01" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource Primary}" />
+                    </Border>
+                </StackPanel>
                 <TextBlock Text="Creá una secuencia y decidí exactamente cuándo debe pausarse."
                            Foreground="{StaticResource TextSecondary}" FontSize="14" />
+                <Grid Width="330" Height="2" Margin="0,9,0,0" HorizontalAlignment="Left">
+                    <Border Background="{StaticResource PanelBorder}" />
+                    <Border Width="92" HorizontalAlignment="Left" Background="{StaticResource Primary}" />
+                </Grid>
             </StackPanel>
             <Border Grid.Column="1" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorder}"
                     BorderThickness="1" CornerRadius="10" Padding="18,10">

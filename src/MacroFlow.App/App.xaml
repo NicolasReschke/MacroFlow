@@ -6,9 +6,10 @@
     <Application.Resources>
         <SolidColorBrush x:Key="WindowBackground" Color="#0E1118" />
         <SolidColorBrush x:Key="PanelBackground" Color="#171C26" />
-        <SolidColorBrush x:Key="PanelBorder" Color="#2A3342" />
+        <SolidColorBrush x:Key="PanelBorder" Color="#2A3B42" />
         <SolidColorBrush x:Key="Primary" Color="#42D6C8" />
         <SolidColorBrush x:Key="PrimaryDark" Color="#116D68" />
+        <SolidColorBrush x:Key="AccentSurface" Color="#132927" />
         <SolidColorBrush x:Key="TextPrimary" Color="#F4F7FB" />
         <SolidColorBrush x:Key="TextSecondary" Color="#9EABBD" />
         <SolidColorBrush x:Key="Danger" Color="#F56565" />
@@ -122,6 +123,11 @@
             <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
             <Setter Property="Padding" Value="9,6" />
             <Setter Property="Margin" Value="0,4,0,10" />
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Primary}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
         <Style TargetType="ComboBox">
             <Setter Property="Background" Value="#10151D" />
@@ -129,14 +135,60 @@
             <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
             <Setter Property="Padding" Value="8,5" />
             <Setter Property="Margin" Value="0,4,0,10" />
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Primary}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
         <Style TargetType="Button">
             <Setter Property="Background" Value="#263141" />
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
             <Setter Property="BorderBrush" Value="#3A4659" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="14,8" />
             <Setter Property="Margin" Value="4" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2"
+                                Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <Grid>
+                                <Border x:Name="NeonEdge" Height="1" Background="{StaticResource Primary}"
+                                        VerticalAlignment="Top" Opacity="0" />
+                                <ContentPresenter x:Name="ButtonContent" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  RecognizesAccessKey="True" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{StaticResource AccentSurface}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Primary}" />
+                                <Setter TargetName="NeonEdge" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{StaticResource PrimaryDark}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Primary}" />
+                                <Setter TargetName="NeonEdge" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Primary}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
