@@ -49,10 +49,12 @@ public partial class MainWindow : Window
     private System.Windows.Point _dragStartPoint;
     private MacroAction? _draggedAction;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
+    private readonly string? _profileToLoad;
 
-    public MainWindow()
+    public MainWindow(string? profileToLoad = null)
     {
         InitializeComponent();
+        _profileToLoad = profileToLoad;
         _engine = new MacroEngine(_input);
         var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         var profileDirectory = Path.Combine(documents, "MacroFlow", "Macros");
@@ -83,7 +85,7 @@ public partial class MainWindow : Window
             _keyboardHook.Start();
             _mouseHook.Start();
             CreateTrayIcon();
-            RefreshProfileList();
+            RefreshProfileList(_profileToLoad);
             SetInfo("Listo. Configurá las teclas y guardá un perfil antes de jugar.");
         }
         catch (Exception exception)
@@ -102,9 +104,10 @@ public partial class MainWindow : Window
     private void CreateTrayIcon()
     {
         var menu = new System.Windows.Forms.ContextMenuStrip();
-        menu.Items.Add("Abrir MacroFlow", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
+        menu.Items.Add("Abrir editor", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
         menu.Items.Add("Detener macro", null, async (_, _) => await Dispatcher.InvokeAsync(StopMacroAsync));
-        menu.Items.Add("Salir", null, (_, _) => Dispatcher.Invoke(Close));
+        menu.Items.Add("Volver al inicio", null, (_, _) => Dispatcher.Invoke(Close));
+        menu.Items.Add("Salir", null, (_, _) => Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown()));
 
         _trayIcon = new System.Windows.Forms.NotifyIcon
         {
@@ -122,6 +125,8 @@ public partial class MainWindow : Window
         WindowState = WindowState.Normal;
         Activate();
     }
+
+    private void BackToDashboard_Click(object sender, RoutedEventArgs e) => Close();
 
     private void KeyboardHook_KeyChanged(object? sender, GlobalKeyEvent e)
     {

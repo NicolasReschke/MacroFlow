@@ -1,0 +1,191 @@
+<Window x:Class="MacroFlow.App.DashboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MacroFlow" Width="1500" Height="850" MinWidth="1180" MinHeight="700"
+        WindowStartupLocation="CenterScreen" Icon="Assets/app-icon.png"
+        Background="{StaticResource WindowBackground}" Foreground="{StaticResource TextPrimary}">
+    <Grid Margin="26">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,18">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="MACROFLOW" FontSize="31" FontWeight="SemiBold" />
+                    <Border Margin="14,5,0,4" Padding="9,3" VerticalAlignment="Center"
+                            Background="{StaticResource AccentSurface}" BorderBrush="{StaticResource Primary}"
+                            BorderThickness="1" CornerRadius="2">
+                        <TextBlock Text="CONTROL CENTER" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Primary}" />
+                    </Border>
+                </StackPanel>
+                <TextBlock Text="Elegí un perfil y revisá sus teclas antes de entrar al juego."
+                           Foreground="{StaticResource TextSecondary}" FontSize="14" />
+            </StackPanel>
+            <Border Grid.Column="1" Padding="14,9" VerticalAlignment="Center"
+                    Background="#10151D" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="4">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource Primary}" Margin="0,0,9,0" />
+                    <TextBlock Text="PERFILES LOCALES" FontSize="11" FontWeight="Bold" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="330" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorder}"
+                    BorderThickness="1" CornerRadius="8" Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="MACROS" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="1" Text="Tus configuraciones guardadas" Foreground="{StaticResource TextSecondary}"
+                               Margin="0,3,0,14" />
+                    <ListBox x:Name="ProfilesList" Grid.Row="2" Background="Transparent" BorderThickness="0"
+                             SelectionChanged="ProfilesList_SelectionChanged" MouseDoubleClick="ProfilesList_MouseDoubleClick"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Margin" Value="0,0,0,7" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Card" Background="#111721" BorderBrush="{StaticResource PanelBorder}"
+                                                    BorderThickness="1" CornerRadius="4" Padding="13,11">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Card" Property="Background" Value="{StaticResource AccentSurface}" />
+                                                    <Setter TargetName="Card" Property="BorderBrush" Value="#39736E" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Card" Property="Background" Value="#143330" />
+                                                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource Primary}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Border Background="{StaticResource Primary}" CornerRadius="2" Margin="0,1,0,1" />
+                                    <StackPanel Grid.Column="1" Margin="11,0,0,0">
+                                        <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource TextSecondary}"
+                                                   FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Button Grid.Row="3" Content="＋  Crear nuevo macro" Click="NewProfile_Click"
+                            Background="{StaticResource PrimaryDark}" Margin="0,12,0,0" Padding="16,10" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorder}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="SelectedProfileName" FontSize="24" FontWeight="SemiBold" />
+                            <TextBlock x:Name="SelectedProfileSummary" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Padding="10,5" Margin="0,0,8,0" Background="#10151D" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1">
+                                <TextBlock x:Name="RepeatBadge" FontSize="11" />
+                            </Border>
+                            <Border Padding="10,5" Background="{StaticResource AccentSurface}" BorderBrush="{StaticResource Primary}" BorderThickness="1">
+                                <TextBlock Text="TECLAS ACTIVAS" Foreground="{StaticResource Primary}" FontSize="11" FontWeight="Bold" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="0,18,0,16">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="285"/></Grid.ColumnDefinitions>
+                        <Border Background="#0B0F15" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="6" Padding="18">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <TextBlock Text="MAPA DEL TECLADO" Foreground="{StaticResource Primary}" FontSize="12" FontWeight="Bold" />
+                                <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="DownOnly" Margin="0,16,0,14">
+                                    <StackPanel Width="940">
+                                        <StackPanel x:Name="FunctionKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" />
+                                        <StackPanel x:Name="ExtraFunctionKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                                        <StackPanel x:Name="NumberKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,11,0,0" />
+                                        <StackPanel x:Name="TopKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                                        <StackPanel x:Name="HomeKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                                        <StackPanel x:Name="BottomKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                                        <StackPanel x:Name="ModifierKeysRow" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                                    </StackPanel>
+                                </Viewbox>
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Border Width="14" Height="14" Background="{StaticResource PrimaryDark}" BorderBrush="{StaticResource Primary}" BorderThickness="1" />
+                                    <TextBlock Text="  Secuencia" Foreground="{StaticResource TextSecondary}" Margin="0,0,18,0" />
+                                    <Border Width="14" Height="14" Background="#17242A" BorderBrush="{StaticResource Primary}" BorderThickness="1" />
+                                    <TextBlock Text="  Control" Foreground="{StaticResource TextSecondary}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="1" Margin="16,0,0,0" Background="#10151D" BorderBrush="{StaticResource PanelBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="16">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Text="CONTROLES DEL PERFIL" Foreground="{StaticResource Primary}" FontSize="12" FontWeight="Bold" />
+                                    <TextBlock Text="Iniciar / detener" Foreground="{StaticResource TextSecondary}" Margin="0,15,0,2" />
+                                    <TextBlock x:Name="ToggleKeyText" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Parada de emergencia" Foreground="{StaticResource TextSecondary}" Margin="0,12,0,2" />
+                                    <TextBlock x:Name="EmergencyKeyText" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Parry" Foreground="{StaticResource TextSecondary}" Margin="0,12,0,2" />
+                                    <TextBlock x:Name="ParryKeyText" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Morph" Foreground="{StaticResource TextSecondary}" Margin="0,12,0,2" />
+                                    <TextBlock x:Name="MorphKeyText" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Grabación" Foreground="{StaticResource TextSecondary}" Margin="0,12,0,2" />
+                                    <TextBlock x:Name="RecorderKeyText" FontSize="17" FontWeight="SemiBold" />
+                                    <Separator Background="{StaticResource PanelBorder}" Margin="0,16" />
+                                    <TextBlock Text="TECLAS DE LA SECUENCIA" Foreground="{StaticResource Primary}" FontSize="12" FontWeight="Bold" />
+                                    <WrapPanel x:Name="SequenceKeysPanel" Margin="0,8,0,0" />
+                                    <TextBlock x:Name="MouseInputsText" Foreground="{StaticResource TextSecondary}"
+                                               TextWrapping="Wrap" Margin="0,12,0,0" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
+                        <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}"
+                                   Text="Doble clic sobre un perfil para abrirlo." />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Actualizar lista" Click="Refresh_Click" />
+                            <Button Content="Editar macro seleccionado" Click="OpenSelected_Click"
+                                    Background="{StaticResource PrimaryDark}" Padding="20,9" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Margin="0,14,0,0" Foreground="#68778A" FontSize="11"
+                   Text="MACROFLOW // LOCAL PROFILE SYSTEM // Los perfiles permanecen en Documentos\MacroFlow\Macros" />
+    </Grid>
+</Window>
