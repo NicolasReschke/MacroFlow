@@ -161,8 +161,6 @@
                                 BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2"
                                 Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                             <Grid>
-                                <Border x:Name="NeonEdge" Height="1" Background="{StaticResource Primary}"
-                                        VerticalAlignment="Top" Opacity="0" />
                                 <ContentPresenter x:Name="ButtonContent" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                                   RecognizesAccessKey="True" />
@@ -172,12 +170,10 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="ButtonChrome" Property="Background" Value="{StaticResource AccentSurface}" />
                                 <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Primary}" />
-                                <Setter TargetName="NeonEdge" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="ButtonChrome" Property="Background" Value="{StaticResource PrimaryDark}" />
                                 <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Primary}" />
-                                <Setter TargetName="NeonEdge" Property="Opacity" Value="1" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{StaticResource Primary}" />
