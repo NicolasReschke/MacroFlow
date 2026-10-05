@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MacroFlow.Core\MacroFlow.Core.csproj" />
-    <Resource Include="Assets\app-icon.png" />
+    <Resource Include="Assets\app-icon.ico" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -15,7 +15,8 @@
     <AssemblyName>MacroFlow</AssemblyName>
     <RootNamespace>MacroFlow.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
+    <Version>0.2.0</Version>
     <Authors>MacroFlow contributors</Authors>
     <Description>Editor y ejecutor local de macros interrumpibles para Windows.</Description>
   </PropertyGroup>

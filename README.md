@@ -66,7 +66,15 @@ dotnet run --project tests/MacroFlow.Core.Tests --configuration Release
 dotnet run --project src/MacroFlow.App
 ```
 
-La publicación portable queda reservada para una etapa posterior, cuando la interfaz y el comportamiento estén validados.
+## Versión portable
+
+La edición portable para Windows x64 se distribuye como un archivo ZIP y no requiere instalar .NET:
+
+1. Extraé todo el contenido del ZIP en una carpeta.
+2. Ejecutá `MacroFlow.exe`.
+3. Los perfiles se guardan en `Documentos\MacroFlow\Macros`, fuera de la carpeta del programa.
+
+Windows puede mostrar una advertencia de SmartScreen mientras el ejecutable no tenga una firma digital con reputación. El código fuente y las compilaciones automáticas permanecen disponibles en este repositorio para poder verificar su contenido.
 
 ## Estructura
 

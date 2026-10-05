@@ -48,7 +48,6 @@ public partial class MainWindow : Window
     private KeyCaptureTarget _captureTarget;
     private System.Windows.Point _dragStartPoint;
     private MacroAction? _draggedAction;
-    private System.Windows.Forms.NotifyIcon? _trayIcon;
     private readonly string? _profileToLoad;
 
     public MainWindow(string? profileToLoad = null)
@@ -84,7 +83,6 @@ public partial class MainWindow : Window
         {
             _keyboardHook.Start();
             _mouseHook.Start();
-            CreateTrayIcon();
             RefreshProfileList(_profileToLoad);
             SetInfo("Listo. Configurá las teclas y guardá un perfil antes de jugar.");
         }
@@ -98,25 +96,7 @@ public partial class MainWindow : Window
     {
         if (WindowState != WindowState.Minimized) return;
         Hide();
-        _trayIcon?.ShowBalloonTip(1500, "MacroFlow", "MacroFlow sigue disponible en la bandeja.", System.Windows.Forms.ToolTipIcon.Info);
-    }
-
-    private void CreateTrayIcon()
-    {
-        var menu = new System.Windows.Forms.ContextMenuStrip();
-        menu.Items.Add("Abrir editor", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
-        menu.Items.Add("Detener macro", null, async (_, _) => await Dispatcher.InvokeAsync(StopMacroAsync));
-        menu.Items.Add("Volver al inicio", null, (_, _) => Dispatcher.Invoke(Close));
-        menu.Items.Add("Salir", null, (_, _) => Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown()));
-
-        _trayIcon = new System.Windows.Forms.NotifyIcon
-        {
-            Icon = System.Drawing.SystemIcons.Application,
-            Text = "MacroFlow — detenido",
-            Visible = true,
-            ContextMenuStrip = menu
-        };
-        _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowFromTray);
+        (Owner as DashboardWindow)?.ShowTrayBalloon();
     }
 
     private void ShowFromTray()
@@ -125,6 +105,9 @@ public partial class MainWindow : Window
         WindowState = WindowState.Normal;
         Activate();
     }
+
+    internal void RestoreFromTray() => ShowFromTray();
+    internal Task StopFromTrayAsync() => StopMacroAsync();
 
     private void BackToDashboard_Click(object sender, RoutedEventArgs e) => Close();
 
@@ -350,7 +333,7 @@ public partial class MainWindow : Window
             StatusText.Text = "GRABANDO";
             StatusDot.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68));
             PauseReasonsText.Text = "Sólo entradas físicas";
-            if (_trayIcon is not null) _trayIcon.Text = "MacroFlow — grabando";
+            (Owner as DashboardWindow)?.SetTrayStatus("grabando");
             return;
         }
         StatusText.Text = _engine.State switch
@@ -368,7 +351,7 @@ public partial class MainWindow : Window
 
         var reasons = _engine.Pause.Reasons;
         PauseReasonsText.Text = reasons.Count == 0 ? "Sin pausas activas" : string.Join(" · ", reasons);
-        if (_trayIcon is not null) _trayIcon.Text = $"MacroFlow — {StatusText.Text.ToLowerInvariant()}";
+        (Owner as DashboardWindow)?.SetTrayStatus(StatusText.Text.ToLowerInvariant());
     }
 
     private void Engine_Faulted(object? sender, Exception exception)
@@ -803,7 +786,6 @@ public partial class MainWindow : Window
         _targetTimer.Stop();
         _resumeCancellation?.Cancel();
         _engine.StopAsync().GetAwaiter().GetResult();
-        _trayIcon?.Dispose();
         base.OnClosing(e);
     }
 }

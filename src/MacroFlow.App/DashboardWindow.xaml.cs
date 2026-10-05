@@ -18,6 +18,8 @@ public partial class DashboardWindow : Window
     private readonly ProfileStore _profileStore;
     private readonly Dictionary<string, Border> _keyVisuals = new(StringComparer.OrdinalIgnoreCase);
     private MacroProfile _selectedProfile = new();
+    private System.Windows.Forms.NotifyIcon? _trayIcon;
+    private MainWindow? _activeEditor;
 
     public DashboardWindow()
     {
@@ -27,7 +29,12 @@ public partial class DashboardWindow : Window
         _profileStore = new ProfileStore(profileDirectory);
         MigrateLegacyProfiles(Path.Combine(AppContext.BaseDirectory, "profiles"), profileDirectory);
         ProfilesList.ItemsSource = _profiles;
-        Loaded += (_, _) => ReloadProfiles();
+        Loaded += (_, _) =>
+        {
+            CreateTrayIcon();
+            ReloadProfiles();
+        };
+        StateChanged += DashboardWindow_StateChanged;
     }
 
     private void ReloadProfiles(string? preferredName = null)
@@ -328,6 +335,7 @@ public partial class DashboardWindow : Window
         var selected = ProfilesList.SelectedItem as ProfileListItem;
         var profileName = forceNew || selected?.IsDefault != false ? null : selected.Name;
         var editor = new MainWindow(profileName) { Owner = this };
+        _activeEditor = editor;
         Hide();
         try
         {
@@ -335,10 +343,71 @@ public partial class DashboardWindow : Window
         }
         finally
         {
+            _activeEditor = null;
             Show();
             Activate();
             ReloadProfiles(profileName);
         }
+    }
+
+    private void CreateTrayIcon()
+    {
+        if (_trayIcon is not null) return;
+        var menu = new System.Windows.Forms.ContextMenuStrip();
+        menu.Items.Add("Abrir MacroFlow", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
+        menu.Items.Add("Detener macro", null, (_, _) => Dispatcher.BeginInvoke(async () =>
+        {
+            if (_activeEditor is not null) await _activeEditor.StopFromTrayAsync();
+        }));
+        menu.Items.Add("Volver al inicio", null, (_, _) => Dispatcher.Invoke(ReturnToDashboard));
+        menu.Items.Add("Salir", null, (_, _) => Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown()));
+
+        _trayIcon = new System.Windows.Forms.NotifyIcon
+        {
+            Icon = AppIcon.LoadForTray(),
+            Text = "MacroFlow — inicio",
+            Visible = true,
+            ContextMenuStrip = menu
+        };
+        _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowFromTray);
+    }
+
+    private void DashboardWindow_StateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState != WindowState.Minimized) return;
+        Hide();
+        ShowTrayBalloon();
+    }
+
+    private void ShowFromTray()
+    {
+        if (_activeEditor is not null)
+        {
+            _activeEditor.RestoreFromTray();
+            return;
+        }
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void ReturnToDashboard()
+    {
+        if (_activeEditor is not null)
+        {
+            _activeEditor.Close();
+            return;
+        }
+        ShowFromTray();
+    }
+
+    internal void ShowTrayBalloon() => _trayIcon?.ShowBalloonTip(
+        1500, "MacroFlow", "MacroFlow sigue disponible en los iconos ocultos.",
+        System.Windows.Forms.ToolTipIcon.Info);
+
+    internal void SetTrayStatus(string status)
+    {
+        if (_trayIcon is not null) _trayIcon.Text = $"MacroFlow — {status}";
     }
 
     private static void MigrateLegacyProfiles(string legacyDirectory, string newDirectory)
@@ -350,5 +419,16 @@ public partial class DashboardWindow : Window
             var destination = Path.Combine(newDirectory, Path.GetFileName(source));
             if (!File.Exists(destination)) File.Copy(source, destination);
         }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (_trayIcon is not null)
+        {
+            _trayIcon.Visible = false;
+            _trayIcon.Icon?.Dispose();
+            _trayIcon.Dispose();
+        }
+        base.OnClosed(e);
     }
 }

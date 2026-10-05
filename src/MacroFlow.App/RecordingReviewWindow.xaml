@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:MacroFlow.App"
         Title="Revisar grabación — MacroFlow" Width="820" Height="650" MinWidth="680" MinHeight="480"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app-icon.png"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app-icon.ico"
         Background="{StaticResource WindowBackground}" Foreground="{StaticResource TextPrimary}">
     <Window.Resources>
         <local:ActionKindLabelConverter x:Key="KindConverter" />

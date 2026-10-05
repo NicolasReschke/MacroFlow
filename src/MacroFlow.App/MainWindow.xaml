@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:MacroFlow.App"
         Title="MacroFlow" Height="850" Width="1550" MinHeight="720" MinWidth="1280"
-        WindowStartupLocation="CenterScreen" Icon="Assets/app-icon.png"
+        WindowStartupLocation="CenterScreen" Icon="Assets/app-icon.ico"
         Background="{StaticResource WindowBackground}" Foreground="{StaticResource TextPrimary}">
     <Window.Resources>
         <local:ActionKindLabelConverter x:Key="ActionKindLabelConverter" />
