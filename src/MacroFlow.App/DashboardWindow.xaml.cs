@@ -15,6 +15,7 @@ public partial class DashboardWindow : Window
 
     private readonly ObservableCollection<ProfileListItem> _profiles = [];
     private readonly ProfileStore _profileStore;
+    private readonly Dictionary<string, Border> _keyVisuals = new(StringComparer.OrdinalIgnoreCase);
     private MacroProfile _selectedProfile = new();
 
     public DashboardWindow()
@@ -69,12 +70,6 @@ public partial class DashboardWindow : Window
         SelectedProfileSummary.Text = $"{actionCount} entradas · {totalMs:N0} ms por ciclo · proceso: {profile.TargetProcessName}";
         RepeatBadge.Text = profile.Repeat ? "↻ REPETICIÓN ACTIVA" : "→ UNA EJECUCIÓN";
 
-        ToggleKeyText.Text = KeyMap.GetDisplayName(profile.ToggleHotkey);
-        EmergencyKeyText.Text = KeyMap.GetDisplayName(profile.EmergencyStopKey);
-        ParryKeyText.Text = KeyMap.GetDisplayName(profile.HoldPauseKey);
-        MorphKeyText.Text = KeyMap.GetDisplayName(profile.MorphToggleKey);
-        RecorderKeyText.Text = HotkeyGesture.GetDisplayName(profile.RecorderHotkey);
-
         var actionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var action in profile.Actions.Where(action =>
                      action.Kind is MacroActionKind.KeyPress or MacroActionKind.KeyDown or MacroActionKind.KeyUp))
@@ -89,11 +84,13 @@ public partial class DashboardWindow : Window
         foreach (var token in HotkeyGesture.Tokens(profile.RecorderHotkey)) AddExpandedToken(controlKeys, token);
 
         BuildKeyboard(actionKeys, controlKeys);
-        BuildSequenceChips(profile);
+        Dispatcher.BeginInvoke(new Action(() => RenderControlCallouts(profile)),
+            System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void BuildKeyboard(HashSet<string> actionKeys, HashSet<string> controlKeys)
     {
+        _keyVisuals.Clear();
         AddKeyboardRow(FunctionKeysRow, ["ESCAPE", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"], actionKeys, controlKeys);
         AddKeyboardRow(ExtraFunctionKeysRow, Enumerable.Range(13, 12).Select(number => $"F{number}"), actionKeys, controlKeys);
         AddKeyboardRow(NumberKeysRow, ["VK_C0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "VK_BD", "VK_BB", "BACKSPACE"], actionKeys, controlKeys);
@@ -103,7 +100,7 @@ public partial class DashboardWindow : Window
         AddKeyboardRow(ModifierKeysRow, ["LCTRL", "LALT", "SPACE", "RALT", "RCTRL", "LEFT", "UP", "DOWN", "RIGHT"], actionKeys, controlKeys);
     }
 
-    private static void AddKeyboardRow(System.Windows.Controls.Panel panel, IEnumerable<string> tokens,
+    private void AddKeyboardRow(System.Windows.Controls.Panel panel, IEnumerable<string> tokens,
         HashSet<string> actionKeys, HashSet<string> controlKeys)
     {
         panel.Children.Clear();
@@ -149,48 +146,108 @@ public partial class DashboardWindow : Window
                 }
             };
             panel.Children.Add(border);
+            _keyVisuals[token] = border;
         }
     }
 
-    private void BuildSequenceChips(MacroProfile profile)
+    private void RenderControlCallouts(MacroProfile profile)
     {
-        SequenceKeysPanel.Children.Clear();
-        var tokens = profile.Actions
-            .Where(action => action.Kind is MacroActionKind.KeyPress or MacroActionKind.KeyDown or MacroActionKind.KeyUp)
-            .Select(action => action.Value)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        ControlCalloutCanvas.Children.Clear();
+        if (ControlCalloutCanvas.ActualWidth <= 0 || ControlCalloutCanvas.ActualHeight <= 0) return;
 
-        if (tokens.Length == 0)
+        var recorderTokens = HotkeyGesture.Tokens(profile.RecorderHotkey);
+        var callouts = new[]
         {
-            SequenceKeysPanel.Children.Add(new TextBlock
-            {
-                Text = "Sin teclas asignadas",
-                Foreground = (System.Windows.Media.Brush)FindResource("TextSecondary")
-            });
-        }
-        else
+            (Token: profile.ToggleHotkey, Label: "INICIAR / DETENER", Value: KeyMap.GetDisplayName(profile.ToggleHotkey)),
+            (Token: profile.EmergencyStopKey, Label: "PARADA DE EMERGENCIA", Value: KeyMap.GetDisplayName(profile.EmergencyStopKey)),
+            (Token: profile.HoldPauseKey, Label: "PARRY", Value: KeyMap.GetDisplayName(profile.HoldPauseKey)),
+            (Token: profile.MorphToggleKey, Label: "MORPH", Value: KeyMap.GetDisplayName(profile.MorphToggleKey)),
+            (Token: recorderTokens.LastOrDefault() ?? profile.RecorderHotkey, Label: "GRABACIÓN", Value: HotkeyGesture.GetDisplayName(profile.RecorderHotkey))
+        };
+
+        var located = callouts.Select(callout =>
         {
-            foreach (var token in tokens)
+            var visualToken = ResolveVisualToken(callout.Token);
+            if (visualToken is null || !_keyVisuals.TryGetValue(visualToken, out var key)) return (Callout: callout, Key: (Border?)null, Point: new System.Windows.Point());
+            return (Callout: callout, Key: (Border?)key,
+                Point: key.TranslatePoint(new System.Windows.Point(key.ActualWidth / 2, key.ActualHeight / 2), ControlCalloutCanvas));
+        }).Where(item => item.Key is not null).OrderBy(item => item.Point.Y).ToArray();
+
+        if (located.Length == 0) return;
+        var targetX = Math.Max(ControlCalloutCanvas.ActualWidth - 245, ControlCalloutCanvas.ActualWidth * 0.72);
+        var top = 34d;
+        var gap = located.Length == 1 ? 0 : Math.Min(76, (ControlCalloutCanvas.ActualHeight - 68) / (located.Length - 1));
+        if (gap < 48) gap = 48;
+
+        for (var index = 0; index < located.Length; index++)
+        {
+            var item = located[index];
+            var targetY = Math.Min(ControlCalloutCanvas.ActualHeight - 30, top + gap * index);
+            var elbowX = Math.Max(item.Point.X + 24, targetX - 58);
+            var line = new System.Windows.Shapes.Polyline
             {
-                SequenceKeysPanel.Children.Add(new Border
+                Stroke = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x55, 0x78, 0x76)),
+                StrokeThickness = 1,
+                Points = new PointCollection
                 {
-                    Background = (System.Windows.Media.Brush)FindResource("PrimaryDark"),
-                    BorderBrush = (System.Windows.Media.Brush)FindResource("Primary"),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(2),
-                    Padding = new Thickness(8, 4, 8, 4),
-                    Margin = new Thickness(0, 0, 6, 6),
-                    Child = new TextBlock { Text = KeyMap.GetDisplayName(token), FontWeight = FontWeights.SemiBold }
-                });
-            }
-        }
+                    item.Point,
+                    new System.Windows.Point(Math.Min(item.Point.X + 30, elbowX), item.Point.Y),
+                    new System.Windows.Point(elbowX, targetY),
+                    new System.Windows.Point(targetX, targetY)
+                }
+            };
+            ControlCalloutCanvas.Children.Add(line);
 
-        var mouseInputs = profile.Actions.Where(action => action.Kind == MacroActionKind.MouseClick)
-            .Select(action => action.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        MouseInputsText.Text = mouseInputs.Length == 0
-            ? "Sin botones de mouse en la secuencia."
-            : $"Mouse: {string.Join(", ", mouseInputs)}";
+            var dot = new System.Windows.Shapes.Ellipse
+            {
+                Width = 8,
+                Height = 8,
+                Fill = (System.Windows.Media.Brush)FindResource("Primary"),
+                Stroke = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xFF, 0xFC)),
+                StrokeThickness = 1
+            };
+            Canvas.SetLeft(dot, item.Point.X - 4);
+            Canvas.SetTop(dot, item.Point.Y - 4);
+            ControlCalloutCanvas.Children.Add(dot);
+
+            var label = new StackPanel { Width = 220 };
+            label.Children.Add(new TextBlock
+            {
+                Text = item.Callout.Label,
+                Foreground = (System.Windows.Media.Brush)FindResource("TextSecondary"),
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold
+            });
+            label.Children.Add(new TextBlock
+            {
+                Text = item.Callout.Value,
+                Foreground = (System.Windows.Media.Brush)FindResource("TextPrimary"),
+                FontSize = 15,
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+            Canvas.SetLeft(label, targetX + 9);
+            Canvas.SetTop(label, targetY - 19);
+            ControlCalloutCanvas.Children.Add(label);
+        }
+    }
+
+    private static string? ResolveVisualToken(string? token)
+    {
+        if (!KeyMap.TryParse(token, out var virtualKey)) return null;
+        return KeyMap.ToToken(virtualKey) switch
+        {
+            "SHIFT" => "LSHIFT",
+            "CTRL" => "LCTRL",
+            "ALT" => "LALT",
+            var canonical => canonical
+        };
+    }
+
+    private void ControlCalloutCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(new Action(() => RenderControlCallouts(_selectedProfile)),
+            System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private static void AddExpandedToken(HashSet<string> target, string? token)
